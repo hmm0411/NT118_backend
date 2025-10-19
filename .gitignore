@@ -1,0 +1,17 @@
+# Node modules & build
+node_modules/
+dist/
+.env
+.env.*
+*.log
+
+# Firebase service account key
+*.json
+!package-lock.json     
+
+# TypeScript cache
+*.tsbuildinfo
+
+# OS-specific
+.DS_Store
+Thumbs.db
