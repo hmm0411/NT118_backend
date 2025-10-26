@@ -1,46 +1,50 @@
 # Ciné API (cine-backend)
----
+
 ## Yêu cầu
-- Node.js >= 18
-- npm
-- Docker & Docker Compose (nếu muốn chạy MySQL/Redis bằng Docker)
+- Node.js >= 18  
+- npm  
+- Docker & Docker Compose (nếu muốn chạy MySQL/Redis bằng Docker)  
+
+---
 
 ## Nhanh (Quickstart)
 Các bước ngắn để chạy app local:
 
-1. Clone repo
+1. **Clone repo**
+   ```powershell
+   git clone https://github.com/hmm0411/NT118_backend
+   cd cine-backend
+````
 
-```powershell
-git clone <repo-url>
-cd cine-backend
-```
+2. **Cài dependencies**
 
-2. Cài dependencies
+   ```powershell
+   npm install
+   ```
 
-```powershell
-npm install
-```
+3. **Tạo file `.env`** ở gốc repo (xem phần **Biến môi trường** bên dưới).
 
-3. Tạo file `.env` ở gốc repo (xem phần Biến môi trường bên dưới).
+4. **(Tùy chọn)** Khởi chạy MySQL & Redis bằng Docker Compose (xem phần Docker Compose):
 
-4. (Tùy) Khởi chạy MySQL & Redis bằng Docker Compose (xem phần Docker Compose)
-```powershell
-docker compose up -d
-```
+   ```powershell
+   docker compose up -d
+   ```
 
-5. Chạy server ở chế độ phát triển:
+5. **Chạy server ở chế độ phát triển**
 
-```powershell
-npm run dev
-```
+   ```powershell
+   npm run dev
+   ```
 
-6. Kiểm tra API (ví dụ đăng ký/đăng nhập)
-POST http://localhost:5000/api/auth/register
-POST http://localhost:5000/api/auth/login
+6. **Kiểm tra API (ví dụ đăng ký/đăng nhập)**
+
+   * POST [http://localhost:5000/api/auth/register](http://localhost:5000/api/auth/register)
+   * POST [http://localhost:5000/api/auth/login](http://localhost:5000/api/auth/login)
 
 ---
 
 ## Chạy với Docker Compose
+
 Nếu không có MySQL/Redis sẵn, có thể sử dụng Docker Compose để khởi tạo nhanh:
 
 ```yaml
@@ -74,9 +78,10 @@ docker compose up -d
 ---
 
 ## Scripts (package.json)
-- `npm run dev` — phát triển với `ts-node-dev` (hot reload, transpile-only)
-- `npm run build` — biên dịch TypeScript sang `dist/`
-- `npm start` — chạy bản build (`node dist/server.js`)
+
+* `npm run dev` — phát triển với `ts-node-dev` (hot reload, transpile-only)
+* `npm run build` — biên dịch TypeScript sang `dist/`
+* `npm start` — chạy bản build (`node dist/server.js`)
 
 Ví dụ build + start production:
 
@@ -87,8 +92,9 @@ npm start
 
 ---
 
-## Cấu trúc thư mục (giải thích)
+## Cấu trúc thư mục
 
+```
 src/
  ├── app.ts              # cấu hình Express (middleware, routes)
  ├── server.ts           # entry point khởi động server
@@ -117,17 +123,27 @@ src/
  │    ├── jwt.ts
  │    ├── otp.ts
  │    └── qrcode.ts
+```
+
 ---
 
 ## API hiện tại
-1. Auth
-POST /api/auth/register — Đăng ký user
-POST /api/auth/set-password — Đặt mật khẩu
-POST /api/auth/send-otp — Gửi OTP
-POST /api/auth/verify-otp — Xác thực OTP
-POST /api/auth/login — Đăng nhập
-2. User
-GET /api/users/:userId/bookings — Lịch sử đặt vé
-3. Booking
-GET /api/booking/shows/:id/seats — Lấy ghế
-POST /api/booking/lock — Giữ chỗ
+
+### 1. Auth
+
+* `POST /api/auth/register` — Đăng ký user
+* `POST /api/auth/set-password` — Đặt mật khẩu
+* `POST /api/auth/send-otp` — Gửi OTP
+* `POST /api/auth/verify-otp` — Xác thực OTP
+* `POST /api/auth/login` — Đăng nhập
+
+### 2. User
+
+* `GET /api/users/:userId/bookings` — Lịch sử đặt vé
+
+### 3. Booking
+
+* `GET /api/booking/shows/:id/seats` — Lấy ghế
+* `POST /api/booking/lock` — Giữ chỗ
+
+```
