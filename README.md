@@ -14,7 +14,7 @@ Các bước ngắn để chạy app local:
    ```powershell
    git clone https://github.com/hmm0411/NT118_backend
    cd cine-backend
-````
+   ````
 
 2. **Cài dependencies**
 
