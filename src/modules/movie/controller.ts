@@ -1,36 +1,106 @@
 import { Request, Response } from "express";
-import { firebaseDB } from "../../config/firebase";
+import * as movieService from "./service";
 
-// Tìm kiếm phim theo từ khóa trong tiêu đề, thể loại hoặc diễn viên
-export async function searchMovies(req: Request, res: Response): Promise<void> {
-    try {
-        const q = (req.query.q as string || "").toLowerCase().trim();
-        if (!q) {
-            res.status(400).json({ success: false, message: "Missing search keyword (q)" });
-            return;
-        }
+/**
+ * @swagger
+ * tags:
+ *   name: Movies
+ *   description: Quản lý phim
+ */
 
-        const snapshot = await firebaseDB.collection("movies").get();
-        const results: any[] = [];
+/**
+ * @swagger
+ * /api/movies:
+ *   get:
+ *     summary: Lấy danh sách phim
+ *     tags: [Movies]
+ *     responses:
+ *       200:
+ *         description: Danh sách phim
+ */
+export async function getMovies(req: Request, res: Response) {
+  const data = await movieService.getMovies();
+  res.json(data);
+}
 
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            const title = (data.title || "").toLowerCase();
-            const genre = Array.isArray(data.genre) ? data.genre.map((g: string) => g.toLowerCase()) : [];
-            const actors = Array.isArray(data.actors) ? data.actors.map((a: string) => a.toLowerCase()) : [];
+/**
+ * @swagger
+ * /api/movies/{id}:
+ *   get:
+ *     summary: Lấy chi tiết phim
+ *     tags: [Movies]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Chi tiết phim
+ */
+export async function getMovieById(req: Request, res: Response) {
+  const movie = await movieService.getMovieById(req.params.id);
+  if (!movie) return res.status(404).json({ message: "Movie not found" });
+  res.json(movie);
+}
 
-            if (
-                title.includes(q) ||
-                genre.some((g: string) => g.includes(q)) ||
-                actors.some((a: string) => a.includes(q))
-            ) {
-                results.push({ id: doc.id, ...data });
-            }
-        });
+/**
+ * @swagger
+ * /api/movies:
+ *   post:
+ *     summary: Thêm phim mới
+ *     tags: [Movies]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Movie'
+ *     responses:
+ *       201:
+ *         description: Tạo thành công
+ */
+export async function createMovie(req: Request, res: Response) {
+  const movie = await movieService.createMovie(req.body);
+  res.status(201).json(movie);
+}
 
-        res.json({ success: true, count: results.length, movies: results });
-    } catch (error: any) {
-        console.error("Search error:", error);
-        res.status(500).json({ success: false, message: error.message });
-    }
+/**
+ * @swagger
+ * /api/movies/{id}:
+ *   put:
+ *     summary: Cập nhật phim
+ *     tags: [Movies]
+ */
+export async function updateMovie(req: Request, res: Response) {
+  const updated = await movieService.updateMovie(req.params.id, req.body);
+  if (!updated) return res.status(404).json({ message: "Movie not found" });
+  res.json(updated);
+}
+
+/**
+ * @swagger
+ * /api/movies/{id}:
+ *   delete:
+ *     summary: Xóa phim
+ *     tags: [Movies]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Xóa thành công
+ *       404:
+ *         description: Không tìm thấy phim
+ */
+export async function deleteMovie(req: Request, res: Response) {
+  const result = await movieService.removeMovie(req.params.id);
+  if (!result)
+    return res.status(404).json({ success: false, message: "Movie not found" });
+
+  res.json({ success: true, ...result });
 }

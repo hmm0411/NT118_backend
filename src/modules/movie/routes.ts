@@ -1,9 +1,12 @@
 import { Router } from "express";
-import { searchMovies } from "./controller";
+import * as controller from "./controller";
 
-const r = Router();
+const router = Router();
 
-// Search movies by keyword
-r.get("/search", searchMovies);
+router.get("/", controller.getMovies);
+router.get("/:id", controller.getMovieById);
+router.post("/", controller.createMovie);
+router.put("/:id", controller.updateMovie);
+router.delete("/:id", controller.deleteMovie);
 
-export default r;
+export default router;
