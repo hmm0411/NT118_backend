@@ -6,7 +6,6 @@ dist/
 *.log
 
 # Firebase service account key
-*.json
 !package-lock.json     
 
 # TypeScript cache
