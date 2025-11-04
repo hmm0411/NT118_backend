@@ -1,96 +1,80 @@
-import { Request, Response, NextFunction } from "express";
-import { firebaseDB } from "../../config/firebase";
-import { v4 as uuid } from "uuid";
-import admin from "firebase-admin";
+// src/modules/booking/controller.ts
+import { Request, Response } from 'express';
+import * as service from './service';
+import { CreateBookingDTO, ConfirmPaymentDTO } from './dto';
 
-/**
- * Lấy danh sách ghế cho một suất chiếu cụ thể
- */
-export async function getSeats(req: Request, res: Response, next: NextFunction) {
-    try {
-        const showId = req.params.id;
+export async function getShowtimes(req: Request, res: Response) {
+  try {
+    const { movieId, dateFrom, dateTo } = req.query;
+    const filter: any = {};
+    if (movieId) filter.movieId = String(movieId);
+    if (dateFrom) filter.dateFrom = Number(dateFrom);
+    if (dateTo) filter.dateTo = Number(dateTo);
+    const showtimes = await service.getShowtimes(filter);
+    res.json(showtimes);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message || 'Internal error' });
+  }
+}
 
-        const snapshot = await firebaseDB
-            .collection("seats")
-            .where("showId", "==", showId)
-            .get();
+export async function getShowtimeDetail(req: Request, res: Response) {
+  try {
+    const showtime = await service.getShowtimeDetail(req.params.id);
+    res.json(showtime);
+  } catch (err: any) {
+    res.status(404).json({ message: err.message || 'Not found' });
+  }
+}
 
-        const seats = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-        }));
+export async function createBooking(req: Request, res: Response) {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-        res.json({ success: true, data: seats });
-    } catch (error) {
-        console.error("getSeats error:", error);
-        next(error);
-    }
+    const body = req.body as CreateBookingDTO;
+    const result = await service.createBooking(userId, body);
+
+    // trả booking tạm thời + payment hint
+    res.status(201).json(result);
+  } catch (err: any) {
+    res.status(400).json({ message: err.message || 'Bad request' });
+  }
 }
 
 /**
- * Đặt tạm ghế (lock seats trong 5 phút)
+ * Endpoint gọi từ payment gateway webhook hoặc frontend sau thanh toán
  */
-export async function lockSeats(
-    req: Request & { user?: any },
-    res: Response,
-    next: NextFunction
-) {
-    try {
-        const { showId, seats } = req.body;
-        const userId = req.user?.id;
-        if (!showId || !Array.isArray(seats) || seats.length === 0) {
-            res.status(400).json({ success: false, message: "Invalid request body" });
-            return;
-        }
+export async function confirmPayment(req: Request, res: Response) {
+  try {
+    const body = req.body as ConfirmPaymentDTO;
+    const updated = await service.confirmPayment(body);
+    res.json(updated);
+  } catch (err: any) {
+    res.status(400).json({ message: err.message || 'Bad request' });
+  }
+}
 
-        const lockId = uuid();
-        const lockRef = firebaseDB.collection("seatLocks").doc(lockId);
+export async function getMyBookings(req: Request, res: Response) {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    const bookings = await service.getUserBookings(userId);
+    res.json(bookings);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message || 'Internal error' });
+  }
+}
 
-        // Dùng transaction để đảm bảo tất cả ghế đều lock được atomically
-        await firebaseDB.runTransaction(async (transaction) => {
-            const seatSnapshots = await Promise.all(
-                seats.map(async (seatCode: string) => {
-                    const querySnap = await transaction.get(
-                        firebaseDB
-                            .collection("seats")
-                            .where("showId", "==", showId)
-                            .where("seatCode", "==", seatCode)
-                            .limit(1)
-                    );
-                    return querySnap;
-                })
-            );
-
-            // Kiểm tra có ghế nào không tồn tại hoặc đang không khả dụng
-            if (seatSnapshots.some((snap) => snap.empty)) {
-                throw new Error("One or more seats are not available");
-            }
-
-            // Cập nhật tất cả ghế thành "locked"
-            seatSnapshots.forEach((snap) => {
-                const seatRef = snap.docs[0].ref;
-                transaction.update(seatRef, { status: "locked", lockId });
-            });
-
-            // Tạo document lock ghế riêng
-            transaction.set(lockRef, {
-                userId,
-                showId,
-                seats,
-                status: "active",
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 5 * 60 * 1000), // 5 phút
-            });
-        });
-
-        res.json({
-            success: true,
-            lockId,
-            expires: 300,
-            message: "Seats locked for 5 minutes",
-        });
-    } catch (error) {
-        console.error("lockSeats error:", error);
-        next(error);
-    }
+export async function cancelBooking(req: Request, res: Response) {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    const id = req.params.id;
+    const canceled = await service.cancelBooking(userId, id);
+    res.json(canceled);
+  } catch (err: any) {
+    const msg = err.message || 'Bad request';
+    if (msg.includes('Permission') || msg.includes('not found')) return res.status(403).json({ message: msg });
+    res.status(400).json({ message: msg });
+  }
 }
