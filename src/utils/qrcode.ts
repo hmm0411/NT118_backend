@@ -1,5 +1,5 @@
 // src/utils/qrcode.ts
-import { QRCode}  from "qrcode";
+import QRCode from "qrcode";
 
 /**
  * Sinh QR code dưới dạng Base64 DataURL (PNG)
