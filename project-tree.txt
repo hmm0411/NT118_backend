@@ -17,7 +17,8 @@
    ├─ config/
    │  ├─ env.ts
    │  ├─ firebase.ts
-   │  └─ passport.ts
+   │  ├─ passport.ts
+   │  └─ swagger.ts
    ├─ middleware/
    │  ├─ auth.ts
    │  └─ error.ts
@@ -29,8 +30,16 @@
    │  │  └─ service.ts
    │  ├─ booking/
    │  │  ├─ controller.ts
+   │  │  ├─ dto.ts
+   │  │  ├─ service.ts
+   │  │  ├─ types.ts
    │  │  └─ routes.ts
-   │  ├─ movie/  (may be missing controller file)
+   │  ├─ movie/
+   │  │  ├─ controller.ts
+   │  │  ├─ dto.ts
+   │  │  ├─ service.ts
+   │  │  ├─ types.ts
+   │  │  └─ routes.ts
    │  ├─ payment/
    │  │  └─ routes.ts
    │  ├─ test/
