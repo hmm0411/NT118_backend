@@ -6,6 +6,8 @@ import { errorHandler } from "./middleware/error";
 import authRoutes from "./modules/auth/routes";
 //import bookingRoutes from "./modules/booking/routes";
 import userRoutes from "./modules/user/routes";
+import testRoutes from "./modules/test/routes";
+import movieRoutes from "./modules/movie/routes";
 import session from "express-session";
 
 const app = express();
@@ -30,6 +32,8 @@ app.get("/health", (_req, res) => res.sendStatus(200));
 app.use("/api/auth", authRoutes);
 //app.use("/api/booking", bookingRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/test", testRoutes);
+app.use("/api/movies", movieRoutes);
 
 // Error handling
 app.use(errorHandler);

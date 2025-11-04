@@ -1,10 +1,38 @@
-import { redis } from "../config/redis";
+import { firebaseDB } from "../config/firebase";
+import admin from "firebase-admin";
 
 export async function saveOTP(phone: string, code: string) {
-    await redis.setEx(`otp:${phone}`, 300, code); // TTL 5 phút
+    const otpRef = firebaseDB.collection('otps').doc(phone);
+
+    // Save OTP with expiration time (5 minutes from now)
+    await otpRef.set({
+        code,
+        phone,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 5 * 60 * 1000) // 5 minutes
+    });
 }
 
 export async function verifyOTP(phone: string, code: string) {
-    const saved = await redis.get(`otp:${phone}`);
-    return saved === code;
+    const otpRef = firebaseDB.collection('otps').doc(phone);
+    const otpDoc = await otpRef.get();
+
+    if (!otpDoc.exists) {
+        return false;
+    }
+
+    const otpData = otpDoc.data()!;
+    const now = admin.firestore.Timestamp.now();
+
+    // Check if OTP has expired
+    if (now.toMillis() > otpData.expiresAt.toMillis()) {
+        // Delete expired OTP
+        await otpRef.delete();
+        return false;
+    }
+
+    // Delete OTP after verification (one-time use)
+    await otpRef.delete();
+
+    return otpData.code === code;
 }

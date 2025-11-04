@@ -1,85 +1,133 @@
 import { Router } from "express";
-import { register, login, setPassword, sendOTP, verifyOTP } from "./controller";
+import {
+    register,
+    login,
+    setPassword,
+    sendOTP,
+    verifyOTP,
+} from "./controller";
 import jwt from "jsonwebtoken";
-import { db } from "../../config/db";
 import { OAuth2Client } from "google-auth-library";
 import { env } from "../../config/env";
+import { firebaseDB } from "../../config/firebase";
+import admin from "firebase-admin";
 
 const router = Router();
-const client = new OAuth2Client(process.env.googleClientId);
+const client = new OAuth2Client(env.googleClientId || process.env.GOOGLE_CLIENT_ID);
 
-// ================== GOOGLE LOGIN (ANDROID CLIENT) ==================
+/**
+ * ==========================
+ * 🔹 GOOGLE LOGIN (ANDROID)
+ * ==========================
+ */
 router.post("/google-mobile", async (req, res) => {
     try {
         const { idToken } = req.body;
+        if (!idToken) {
+            return res.status(400).json({ success: false, message: "Missing idToken" });
+        }
+
+        // Verify Google ID token
         const ticket = await client.verifyIdToken({
             idToken,
-            audience: process.env.googleClientId,
+            audience: env.googleClientId || process.env.GOOGLE_CLIENT_ID,
         });
 
         const payload = ticket.getPayload();
-        if (!payload) return res.status(401).json({ success: false, message: "Invalid token" });
-
-        const email = payload.email;
-        const name = payload.name;
-
-        const [rows]: any = await db.query("SELECT * FROM users WHERE email = ?", [email]);
-
-        let user: any;
-        if (rows.length > 0) {
-            user = rows[0];
-        } else {
-            const [result]: any = await db.query(
-                "INSERT INTO users (email, name, provider, provider_id) VALUES (?, ?, ?, ?)",
-                [email, name, "google", payload.sub]
-            );
-            user = { id: result.insertId, email, name };
+        if (!payload || !payload.email) {
+            return res.status(401).json({ success: false, message: "Invalid token" });
         }
 
-        const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET!, {
-            expiresIn: "1d",
-        });
+        const email = payload.email;
+        const name = payload.name || "Unknown User";
+
+        // Kiểm tra user đã tồn tại trong Firestore chưa
+        const q = await firebaseDB.collection("users").where("email", "==", email).get();
+
+        let user: any;
+        if (!q.empty) {
+            const doc = q.docs[0];
+            user = { id: doc.id, ...doc.data() };
+        } else {
+            const docRef = await firebaseDB.collection("users").add({
+                email,
+                name,
+                provider: "google",
+                provider_id: payload.sub,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            user = { id: docRef.id, email, name };
+        }
+
+        // Tạo JWT cho client
+        const token = jwt.sign(
+            { id: user.id, email: user.email },
+            env.jwtSecret,
+            { expiresIn: "1d" }
+        );
 
         res.json({ success: true, token, user });
     } catch (err: any) {
-        console.error(err);
+        console.error("Google login error:", err);
         res.status(500).json({ success: false, message: "Server error" });
     }
 });
 
-// ================== LOCAL AUTH ==================
-router.post("/register", (req, res) => { register(req, res); });
-router.post("/set-password", (req, res) => { setPassword(req, res); });
-router.post("/send-otp", (req, res) => { sendOTP(req, res); });
-router.post("/verify-otp", (req, res) => { verifyOTP(req, res); });
-router.post("/login", (req, res) => { login(req, res); });
+//Local Auth
+router.post("/register", register);
+router.post("/set-password", setPassword);
+router.post("/send-otp", sendOTP);
+router.post("/verify-otp", verifyOTP);
+router.post("/login", login);
 
-// ================== GOOGLE OAUTH (WEB) ==================
-// router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+// Verify with Firebase ID Token
+router.post("/verify-firebase-token", async (req, res) => {
+    try {
+        const { idToken } = req.body;
+        if (!idToken) {
+            return res.status(400).json({ success: false, message: "Missing idToken" });
+        }
 
-// router.get(
-//     "/google/callback",
-//     passport.authenticate("google", { session: false }),
-//     (req: any, res) => {
-//         const token = jwt.sign({ id: req.user.id, email: req.user.email }, process.env.JWT_SECRET!, {
-//             expiresIn: "1d",
-//         });
-//         res.json({ token, user: req.user });
-//     }
-// );
+        // Xác minh token với Firebase
+        const decoded = await admin.auth().verifyIdToken(idToken);
+        const { uid, email, name } = decoded;
 
-// // ================== FACEBOOK OAUTH (WEB) ==================
-// router.get("/facebook", passport.authenticate("facebook", { scope: ["email"] }));
+        // Kiểm tra hoặc tạo user trong Firestore
+        const usersRef = firebaseDB.collection("users");
+        const q = await usersRef.where("email", "==", email).limit(1).get();
 
-// router.get(
-//     "/facebook/callback",
-//     passport.authenticate("facebook", { session: false }),
-//     (req: any, res) => {
-//         const token = jwt.sign({ id: req.user.id, email: req.user.email }, process.env.JWT_SECRET!, {
-//             expiresIn: "1d",
-//         });
-//         res.json({ token, user: req.user });
-//     }
-// );
+        let user: any;
+        if (!q.empty) {
+            const doc = q.docs[0];
+            user = { id: doc.id, ...doc.data() };
+        } else {
+            const docRef = await usersRef.add({
+                email,
+                name: name || "Android User",
+                firebase_uid: uid,
+                provider: "firebase",
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            user = { id: docRef.id, email };
+        }
+
+        // Tạo JWT backend (tùy chọn, dùng cho các API khác)
+        const token = jwt.sign(
+            { id: user.id, email: user.email },
+            env.jwtSecret,
+            { expiresIn: "1d" }
+        );
+
+        res.json({
+            success: true,
+            message: "Firebase token verified",
+            user,
+            backendToken: token,
+        });
+    } catch (error: any) {
+        console.error("verify-firebase-token error:", error);
+        res.status(401).json({ success: false, message: "Invalid Firebase token" });
+    }
+});
 
 export default router;

@@ -1,0 +1,46 @@
+version: '3.9'
+
+services:
+  backend:
+    build: .
+    container_name: cine-backend
+    restart: always
+    ports:
+      - "5500:5000"
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - mysql
+    networks:
+      - cine-network
+
+  redis:
+    image: redis:alpine
+    container_name: redis-server
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - cine-network
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-cine
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: cineapp
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - cine-network
+
+networks:
+  cine-network:
+    driver: bridge
+
+volumes:
+  mysql_data:

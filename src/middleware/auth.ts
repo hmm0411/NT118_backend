@@ -3,15 +3,14 @@ import jwt from "jsonwebtoken";
 import { env } from "../config/env";
 
 export function auth(req: Request & { user?: any }, res: Response, next: NextFunction) {
-    const h = req.headers.authorization || "";
-    const token = h.startsWith("Bearer ") ? h.slice(7) : "";
-    if (!token) return res.status(401).json({ message: "Unauthorized" });
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ success: false, message: "No token provided" });
 
     try {
-        const decoded = jwt.verify(token, env.jwtSecret);
+        const decoded = jwt.verify(token, env.jwtSecret) as any;
         req.user = decoded;
         next();
-    } catch {
-        return res.status(401).json({ message: "Invalid token" });
+    } catch (err) {
+        res.status(401).json({ success: false, message: "Invalid token" });
     }
 }
