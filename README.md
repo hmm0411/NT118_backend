@@ -1,149 +1,146 @@
 # Ciné API (cine-backend)
 
+Chuyển sang dùng Firebase (Firestore + Firebase Auth) thay vì MySQL/Redis.
+
 ## Yêu cầu
-- Node.js >= 18  
-- npm  
-- Docker & Docker Compose (nếu muốn chạy MySQL/Redis bằng Docker)  
+- Node.js >= 18
+- npm
+
+## Tổng quan nhanh
+1. Cài dependency
+
+```powershell
+npm install
+```
+
+2. Tạo file `.env` theo phần Biến môi trường bên dưới.
+
+3. Chạy server ở chế độ phát triển
+
+```powershell
+npm run dev
+```
+
+4. Test kết nối Firebase (endpoint):
+
+```powershell
+curl http://localhost:5000/api/test/firebase-test
+```
+
+## Scripts (package.json)
+
+- `npm run dev` — phát triển với `ts-node-dev` (hot reload)
+- `npm run build` — biên dịch TypeScript sang `dist/`
+# Ciné API (cine-backend)
+
+Phiên bản hiện tại sử dụng Firebase (Firestore + Firebase Auth). README này hướng dẫn chi tiết cách chạy local, chạy trong Docker, cấu hình Firebase và cách debug.
 
 ---
 
-## Nhanh (Quickstart)
-Các bước ngắn để chạy app local:
+## Chạy trong Docker
 
-1. **Clone repo**
-   ```powershell
-   git clone https://github.com/hmm0411/NT118_backend
-   cd cine-backend
-   ````
+Dockerfile có sẵn multi-stage build (build TypeScript -> runtime). Dưới đây là các cách build/run. (hiện tại có kết nối được nhưng chưa có fix)
 
-2. **Cài dependencies**
+1) Build image và chạy container
 
-   ```powershell
-   npm install
-   ```
+```powershell
+# Build image
+docker build -t cine-backend:latest .
 
-3. **Tạo file `.env`** ở gốc repo (xem phần **Biến môi trường** bên dưới).
+# Run with mounted service account (recommended)
+docker run -d --name cine-backend \\
+   -p 5000:5000 \\
+   -v ${PWD}:/app \\
+   -v ${PWD}/service-account.json:/run/secrets/firebase-key.json:ro \\
+   -e FIREBASE_CREDENTIAL_PATH=/run/secrets/firebase-key.json \\
+   -e PORT=5000 \\
+   cine-backend:latest
+```
 
-4. **(Tùy chọn)** Khởi chạy MySQL & Redis bằng Docker Compose (xem phần Docker Compose):
+Thay `${PWD}/service-account.json` bằng đường dẫn đến file key của bạn.
 
-   ```powershell
-   docker compose up -d
-   ```
+2) Docker Compose (ví dụ)
 
-5. **Chạy server ở chế độ phát triển**
-
-   ```powershell
-   npm run dev
-   ```
-
-6. **Kiểm tra API (ví dụ đăng ký/đăng nhập)**
-
-   * POST [http://localhost:5000/api/auth/register](http://localhost:5000/api/auth/register)
-   * POST [http://localhost:5000/api/auth/login](http://localhost:5000/api/auth/login)
-
----
-
-## Chạy với Docker Compose
-
-Nếu không có MySQL/Redis sẵn, có thể sử dụng Docker Compose để khởi tạo nhanh:
+Tạo `docker-compose.yml` (hoặc dùng file bên dưới) để chạy container và mount key:
 
 ```yaml
 version: '3.8'
 services:
-  db:
-    image: mysql:8
-    environment:
-      MYSQL_ROOT_PASSWORD: secret
-      MYSQL_DATABASE: cine_db
-    ports:
-      - '3306:3306'
-    volumes:
-      - db_data:/var/lib/mysql
+   app:
+      build: .
+      image: cine-backend:latest
+      ports:
+         - '5000:5000'
+      environment:
+         - PORT=5000
+         - FIREBASE_CREDENTIAL_PATH=/run/secrets/firebase-key.json
+      volumes:
+         - './service-account.json:/run/secrets/firebase-key.json:ro'
 
-  redis:
-    image: redis:7
-    ports:
-      - '6379:6379'
-
-volumes:
-  db_data:
+# Lưu ý: không lưu file JSON vào VCS; mount file từ host hoặc sử dụng secrets manager
 ```
 
-Lưu snippet trên thành `docker-compose.yml` rồi chạy:
+Khởi chạy:
 
 ```powershell
-docker compose up -d
+docker compose up -d --build
+```
+
+3) Lưu ý bảo mật
+
+- Không commit `service-account.json` vào Git. Sử dụng Docker secrets, environment variables trong CI/CD hoặc secret manager cho production.
+
+---
+
+## API & hướng dẫn sử dụng
+
+Base URL (local): `http://localhost:5000`
+
+Endpoints chính (tóm tắt):
+
+- Auth
+   - `POST /api/auth/register` — đăng ký (body JSON: name, email, phone, dob)
+   - `POST /api/auth/set-password` — đặt mật khẩu (userId, password)
+   - `POST /api/auth/send-otp` — gửi OTP (phone)
+   - `POST /api/auth/verify-otp` — verify OTP (phone, code)
+   - `POST /api/auth/login` — login (emailOrPhone, password)
+
+- User
+   - `GET /api/users/:userId/bookings` — lấy lịch sử booking của user
+
+- Booking
+   - `GET /api/booking/shows/:id/seats` — lấy ghế cho show
+   - `POST /api/booking/lock` — giữ ghế (body: showId, seats)
+
+- Test
+   - `GET /api/test/firebase-test` — test kết nối Firebase (ghi/đọc doc, gọi listUsers)
+
+Ví dụ curl đăng ký (simple):
+
+```bash
+curl -X POST http://localhost:5000/api/auth/register \\
+   -H "Content-Type: application/json" \\
+   -d '{"name":"Nguyen","email":"ng@example.com","phone":"0123456789","dob":"1990-01-01"}'
 ```
 
 ---
 
-## Scripts (package.json)
+## Troubleshooting 
 
-* `npm run dev` — phát triển với `ts-node-dev` (hot reload, transpile-only)
-* `npm run build` — biên dịch TypeScript sang `dist/`
-* `npm start` — chạy bản build (`node dist/server.js`)
+- Lỗi `5 NOT_FOUND` khi gọi Firestore:
+   - Kiểm tra `FIREBASE_CREDENTIAL_PATH` trỏ đúng file JSON và `project_id` trong file khớp `FIREBASE_PROJECT_ID` (nếu set).
+   - Kiểm tra Firestore đã được bật trong Firebase Console (Native mode).
 
-Ví dụ build + start production:
+- Lỗi liên quan private key:
+   - Nếu dùng `FIREBASE_PRIVATE_KEY` trong `.env`, đảm bảo các `\\n` được giữ nguyên. Hoặc dùng `FIREBASE_CREDENTIAL_PATH` thay cho private key.
 
-```powershell
-npm run build
-npm start
-```
+- Logs: server in ra logs khi khởi động và khi gọi endpoint `/api/test/firebase-test`. Dùng logs để debug quyền và project id.
 
 ---
 
-## Cấu trúc thư mục
+## Phát triển & test
 
-```
-src/
- ├── app.ts              # cấu hình Express (middleware, routes)
- ├── server.ts           # entry point khởi động server
- ├── config/             # cấu hình kết nối
- │    ├── env.ts         # load biến môi trường
- │    ├── db.ts          # MySQL pool
- │    └── redis.ts       # Redis client
- ├── middleware/
- │    └── error.ts       # error handler chung
- ├── modules/            # các module chính
- │    ├── auth/          # Đăng ký/Đăng nhập, OTP
- │    │    ├── controller.ts
- │    │    ├── routes.ts
- │    │    ├── service.ts
- │    │    └── dto.ts
- │    ├── booking/       # Quản lý ghế, lock seat
- │    │    ├── controller.ts
- │    │    └── routes.ts
- │    ├── movie/         # (stub)
- │    ├── payment/       # (stub)
- │    ├── ticket/        # (stub)
- │    └── user/          # Lấy lịch sử booking
- │         ├── controller.ts
- │         └── routes.ts
- ├── utils/              # helper
- │    ├── jwt.ts
- │    ├── otp.ts
- │    └── qrcode.ts
-```
+- Chạy unit tests: (hiện chưa có tests trong repo)
+- Build production: `npm run build` rồi `npm start` (hoặc Docker image).
 
 ---
-
-## API hiện tại
-
-### 1. Auth
-
-* `POST /api/auth/register` — Đăng ký user
-* `POST /api/auth/set-password` — Đặt mật khẩu
-* `POST /api/auth/send-otp` — Gửi OTP
-* `POST /api/auth/verify-otp` — Xác thực OTP
-* `POST /api/auth/login` — Đăng nhập
-
-### 2. User
-
-* `GET /api/users/:userId/bookings` — Lịch sử đặt vé
-
-### 3. Booking
-
-* `GET /api/booking/shows/:id/seats` — Lấy ghế
-* `POST /api/booking/lock` — Giữ chỗ
-
-```

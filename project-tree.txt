@@ -1,0 +1,46 @@
+./
+├─ .dockerignore
+├─ .env
+├─ .env.example
+├─ .git/
+├─ .gitignore
+├─ docker-compose.yaml
+├─ Dockerfile
+├─ nt118-8452f-firebase-adminsdk-fbsvc-8342f8803e.json
+├─ package-lock.json
+├─ package.json
+├─ README.md
+├─ tsconfig.json
+└─ src/
+   ├─ app.ts
+   ├─ server.ts
+   ├─ config/
+   │  ├─ env.ts
+   │  ├─ firebase.ts
+   │  └─ passport.ts
+   ├─ middleware/
+   │  ├─ auth.ts
+   │  └─ error.ts
+   ├─ modules/
+   │  ├─ auth/
+   │  │  ├─ controller.ts
+   │  │  ├─ dto.ts
+   │  │  ├─ routes.ts
+   │  │  └─ service.ts
+   │  ├─ booking/
+   │  │  ├─ controller.ts
+   │  │  └─ routes.ts
+   │  ├─ movie/  (may be missing controller file)
+   │  ├─ payment/
+   │  │  └─ routes.ts
+   │  ├─ test/
+   │  │  ├─ controller.ts
+   │  │  └─ routes.ts
+   │  ├─ ticket/ (no files listed)
+   │  └─ user/
+   │     ├─ controller.ts
+   │     └─ routes.ts
+   └─ utils/
+      ├─ jwt.ts
+      ├─ otp.ts
+      └─ qrcode.ts
