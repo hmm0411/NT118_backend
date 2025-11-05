@@ -10,10 +10,10 @@ export const setupSwagger = (app: Express) => {
       info: {
         title: "🎬 Ciné API",
         version: "1.0.0",
-        description: "API cho hệ thống đặt vé phim (Node.js + Firebase Realtime Database)",
+        description: "API cho hệ thống đặt vé phim (Node.js + Firestore)",
         contact: {
           name: "Ciné Backend Dev Team",
-          email: "support@cine.vn",
+          email: "nhloc08@gmail.com",
         },
       },
       servers: [

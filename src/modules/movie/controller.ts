@@ -10,6 +10,77 @@ import * as movieService from "./service";
 
 /**
  * @swagger
+ * components:
+ *   schemas:
+ *     Movie:
+ *       type: object
+ *       required:
+ *         - title
+ *         - description
+ *         - release
+ *       properties:
+ *         movie_id:
+ *           type: string
+ *           description: Mã phim
+ *         title:
+ *           type: string
+ *           description: Tên phim
+ *         description:
+ *           type: string
+ *           description: Mô tả phim
+ *         imdb:
+ *           type: number
+ *           format: float
+ *           description: Điểm IMDB
+ *         certificate:
+ *           type: string
+ *           description: Giấy phép / Cấm đoán
+ *         runtime:
+ *           type: string
+ *           description: Thời lượng phim
+ *         release:
+ *           type: string
+ *           description: Năm phát hành
+ *         genre:
+ *           type: string
+ *           description: Thể loại phim
+ *         writer:
+ *           type: string
+ *           description: Tác giả kịch bản
+ *         director:
+ *           type: string
+ *           description: Đạo diễn
+ *         cast:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: Dàn diễn viên
+ *         poster:
+ *           type: string
+ *           format: uri
+ *           description: URL ảnh poster phim
+ *         trailerUrl:
+ *           type: string
+ *           format: uri
+ *           description: URL nhúng trailer từ YouTube
+ *       example:
+ *         movie_id: "1"
+ *         title: "12 Angry Men"
+ *         description: "The defense and the prosecution have rested..."
+ *         imdb: 9.0
+ *         certificate: "NR"
+ *         runtime: "1h 36m"
+ *         release: "1957"
+ *         genre: "Crime, Drama"
+ *         writer: "Reginald Rose"
+ *         director: "Sidney Lumet"
+ *         cast: ["Martin Balsam", "John Fiedler", "Lee J. Cobb"]
+ *         poster: "https://example.com/poster.jpg"
+ *         trailerUrl: "https://www.youtube.com/embed/example"
+ */
+
+/**
+ * @swagger
  * /api/movies:
  *   get:
  *     summary: Lấy danh sách phim
@@ -17,6 +88,12 @@ import * as movieService from "./service";
  *     responses:
  *       200:
  *         description: Danh sách phim
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Movie'
  */
 export async function getMovies(req: Request, res: Response) {
   const data = await movieService.getMovies();
@@ -38,6 +115,12 @@ export async function getMovies(req: Request, res: Response) {
  *     responses:
  *       200:
  *         description: Chi tiết phim
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Movie'
+ *       404:
+ *         description: Không tìm thấy phim
  */
 export async function getMovieById(req: Request, res: Response) {
   const movie = await movieService.getMovieById(req.params.id);
@@ -60,6 +143,10 @@ export async function getMovieById(req: Request, res: Response) {
  *     responses:
  *       201:
  *         description: Tạo thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Movie'
  */
 export async function createMovie(req: Request, res: Response) {
   const movie = await movieService.createMovie(req.body);
@@ -72,6 +159,27 @@ export async function createMovie(req: Request, res: Response) {
  *   put:
  *     summary: Cập nhật phim
  *     tags: [Movies]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Movie'
+ *     responses:
+ *       200:
+ *         description: Cập nhật thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Movie'
+ *       404:
+ *         description: Không tìm thấy phim
  */
 export async function updateMovie(req: Request, res: Response) {
   const updated = await movieService.updateMovie(req.params.id, req.body);
