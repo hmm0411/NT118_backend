@@ -40,6 +40,24 @@
    │  │  ├─ service.ts
    │  │  ├─ types.ts
    │  │  └─ routes.ts
+   │  ├─ cinema/
+   │  │  ├─ controller.ts
+   │  │  ├─ dto.ts
+   │  │  ├─ service.ts
+   │  │  ├─ types.ts
+   │  │  └─ routes.ts
+   │  ├─ showtime/
+   │  │  ├─ controller.ts
+   │  │  ├─ dto.ts
+   │  │  ├─ service.ts
+   │  │  ├─ types.ts
+   │  │  └─ routes.ts
+   │  ├─ region/
+   │  │  ├─ controller.ts
+   │  │  ├─ dto.ts
+   │  │  ├─ service.ts
+   │  │  ├─ types.ts
+   │  │  └─ routes.ts
    │  ├─ payment/
    │  │  └─ routes.ts
    │  ├─ test/
