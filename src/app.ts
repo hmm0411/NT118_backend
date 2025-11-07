@@ -10,6 +10,7 @@ import testRoutes from "./modules/test/routes";
 import movieRoutes from "./modules/movie/routes";
 import regionRoutes from "./modules/region/routes";
 import cinemaRouters from "./modules/cinema/routes";
+import showtimeRouters from "./modules/showtime/routes";
 import session from "express-session";
 import { setupSwagger } from "./config/swagger";
 
@@ -41,6 +42,7 @@ app.use("/api/test", testRoutes);
 app.use("/api/movies", movieRoutes);
 app.use("/api/regions", regionRoutes);
 app.use("/api/cinemas", cinemaRouters);
+app.use("/api/showtimes", showtimeRouters);
 
 // Error handling
 app.use(errorHandler);
