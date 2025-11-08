@@ -1,80 +1,171 @@
-// src/modules/booking/controller.ts
-import { Request, Response } from 'express';
-import * as service from './service';
-import { CreateBookingDTO, ConfirmPaymentDTO } from './dto';
-
-export async function getShowtimes(req: Request, res: Response) {
-  try {
-    const { movieId, dateFrom, dateTo } = req.query;
-    const filter: any = {};
-    if (movieId) filter.movieId = String(movieId);
-    if (dateFrom) filter.dateFrom = Number(dateFrom);
-    if (dateTo) filter.dateTo = Number(dateTo);
-    const showtimes = await service.getShowtimes(filter);
-    res.json(showtimes);
-  } catch (err: any) {
-    res.status(500).json({ message: err.message || 'Internal error' });
-  }
-}
-
-export async function getShowtimeDetail(req: Request, res: Response) {
-  try {
-    const showtime = await service.getShowtimeDetail(req.params.id);
-    res.json(showtime);
-  } catch (err: any) {
-    res.status(404).json({ message: err.message || 'Not found' });
-  }
-}
-
-export async function createBooking(req: Request, res: Response) {
-  try {
-    const userId = (req as any).user?.id;
-    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
-
-    const body = req.body as CreateBookingDTO;
-    const result = await service.createBooking(userId, body);
-
-    // trả booking tạm thời + payment hint
-    res.status(201).json(result);
-  } catch (err: any) {
-    res.status(400).json({ message: err.message || 'Bad request' });
-  }
-}
+import { Request, Response, NextFunction } from 'express';
+import * as bookingService from './service';
+import { CreateBookingDto } from './dto';
 
 /**
- * Endpoint gọi từ payment gateway webhook hoặc frontend sau thanh toán
+ * @swagger
+ * tags:
+ *   - name: Booking
+ *     description: API quản lý đặt vé xem phim
+ *
+ * components:
+ *   schemas:
+ *     Booking:
+ *       type: object
+ *       required:
+ *         - id
+ *         - userId
+ *         - showtimeId
+ *         - seats
+ *         - totalPrice
+ *         - status
+ *         - createdAt
+ *       properties:
+ *         id:
+ *           type: string
+ *         userId:
+ *           type: string
+ *         showtimeId:
+ *           type: string
+ *         seats:
+ *           type: array
+ *           items:
+ *             type: string
+ *         totalPrice:
+ *           type: number
+ *         status:
+ *           type: string
+ *           enum: [pending, paid, cancelled]
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *       example:
+ *         id: "bk123xyz"
+ *         userId: "uid_123"
+ *         showtimeId: "st456abc"
+ *         seats: ["A1", "A2"]
+ *         totalPrice: 180000
+ *         status: "pending"
+ *         createdAt: "2025-11-07T08:30:00Z"
+ *
+ *     CreateBookingDto:
+ *       type: object
+ *       required:
+ *         - showtimeId
+ *         - seats
+ *         - totalPrice
+ *       properties:
+ *         showtimeId:
+ *           type: string
+ *           example: "st456abc"
+ *         seats:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["A1", "A2"]
+ *         totalPrice:
+ *           type: number
+ *           example: 180000
  */
-export async function confirmPayment(req: Request, res: Response) {
-  try {
-    const body = req.body as ConfirmPaymentDTO;
-    const updated = await service.confirmPayment(body);
-    res.json(updated);
-  } catch (err: any) {
-    res.status(400).json({ message: err.message || 'Bad request' });
-  }
-}
 
-export async function getMyBookings(req: Request, res: Response) {
+/**
+ * @swagger
+ * /api/booking:
+ *   post:
+ *     summary: Tạo đơn đặt vé mới
+ *     description: Người dùng gửi thông tin đặt vé (suất chiếu, ghế, giá tiền). Mặc định trạng thái là `pending`.
+ *     tags: [Booking]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateBookingDto'
+ *     responses:
+ *       201:
+ *         description: Tạo đơn đặt vé thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Tạo đơn đặt vé thành công
+ *                 data:
+ *                   $ref: '#/components/schemas/Booking'
+ *       401:
+ *         description: Thiếu token hoặc không hợp lệ
+ */
+export const handleCreateBooking = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user?.id;
-    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
-    const bookings = await service.getUserBookings(userId);
-    res.json(bookings);
-  } catch (err: any) {
-    res.status(500).json({ message: err.message || 'Internal error' });
-  }
-}
+    const userId = (req as any).user?.uid; // lấy từ middleware auth firebase
+    const body: CreateBookingDto = req.body;
 
-export async function cancelBooking(req: Request, res: Response) {
-  try {
-    const userId = (req as any).user?.id;
-    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
-    const id = req.params.id;
-    const canceled = await service.cancelBooking(userId, id);
-    res.json(canceled);
-  } catch (err: any) {
-    const msg = err.message || 'Bad request';
-    if (msg.includes('Permission') || msg.includes('not found')) return res.status(403).json({ message: msg });
-    res.status(400).json({ message: msg });
+    const booking = await bookingService.createBooking({
+      userId,
+      showtimeId: body.showtimeId,
+      seats: body.seats,
+      totalPrice: body.totalPrice,
+      status: 'pending',
+      createdAt: new Date(),
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Tạo đơn đặt vé thành công',
+      data: booking,
+    });
+  } catch (error) {
+    next(error);
   }
-}
+};
+
+/**
+ * @swagger
+ * /api/booking:
+ *   get:
+ *     summary: Lấy danh sách vé đã đặt của người dùng
+ *     description: Trả về danh sách các đơn đặt vé thuộc về người dùng hiện tại.
+ *     tags: [Booking]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Lấy danh sách vé của người dùng thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Booking'
+ *       401:
+ *         description: Thiếu token hoặc không hợp lệ
+ */
+export const handleGetUserBookings = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user?.uid;
+    const bookings = await bookingService.getBookingsByUser(userId);
+    res.status(200).json({
+      success: true,
+      message: 'Lấy danh sách vé của người dùng thành công',
+      data: bookings,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

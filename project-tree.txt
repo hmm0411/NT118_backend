@@ -52,6 +52,12 @@
    │  │  ├─ service.ts
    │  │  ├─ types.ts
    │  │  └─ routes.ts
+   │  ├─ seat/
+   │  │  ├─ controller.ts
+   │  │  ├─ dto.ts
+   │  │  ├─ service.ts
+   │  │  ├─ types.ts
+   │  │  └─ routes.ts
    │  ├─ region/
    │  │  ├─ controller.ts
    │  │  ├─ dto.ts
@@ -59,6 +65,10 @@
    │  │  ├─ types.ts
    │  │  └─ routes.ts
    │  ├─ payment/
+   │  │  ├─ controller.ts
+   │  │  ├─ dto.ts
+   │  │  ├─ service.ts
+   │  │  ├─ types.ts
    │  │  └─ routes.ts
    │  ├─ test/
    │  │  ├─ controller.ts

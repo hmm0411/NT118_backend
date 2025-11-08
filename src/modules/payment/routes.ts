@@ -1,12 +1,10 @@
-import { Router } from "express";
-const r = Router();
+import { Router } from 'express';
+import { handleMakePayment } from './controller';
+import { auth } from '../../middleware/auth';
 
-r.post("/momo/create", (_req, res) => {
-    res.json({ payUrl: "https://test.momo.vn/fake-pay" });
-});
+const router = Router();
 
-r.post("/momo/callback", (_req, res) => {
-    res.status(200).end();
-});
+// Thanh toán cần user đăng nhập
+router.post('/', auth, handleMakePayment);
 
-export default r;
+export default router;
