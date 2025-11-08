@@ -5,12 +5,13 @@ import {
   handleUpdateShowtime,
   handleDeleteShowtime,
 } from "./controller";
+import { auth, optionalAuth, isAdmin } from "../../middleware/auth";
 
 const router = Router();
 
 router.get("/", handleGetAllShowtimes);
-router.post("/", handleCreateShowtime);
-router.patch("/:id", handleUpdateShowtime);
-router.delete("/:id", handleDeleteShowtime);
+router.post("/", auth, handleCreateShowtime);
+router.patch("/:id", auth, handleUpdateShowtime);
+router.delete("/:id", auth, handleDeleteShowtime);
 
 export default router;

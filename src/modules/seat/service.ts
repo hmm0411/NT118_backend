@@ -1,14 +1,12 @@
 import { firebaseDB } from '../../config/firebase';
 import { Seat } from './types';
 
-/**
- * Lấy danh sách ghế của một suất chiếu
- */
+const seatCollection = firebaseDB.collection("seats");
+
 export const getSeatsByShowtime = async (showtimeId: string): Promise<Seat[]> => {
   const seatDoc = await firebaseDB.collection('seats').doc(showtimeId).get();
 
   if (!seatDoc.exists) {
-    // nếu chưa có layout, khởi tạo mặc định
     const defaultSeats: Seat[] = generateDefaultSeats();
     await firebaseDB.collection('seats').doc(showtimeId).set({ seats: defaultSeats });
     return defaultSeats;
@@ -18,9 +16,18 @@ export const getSeatsByShowtime = async (showtimeId: string): Promise<Seat[]> =>
   return data?.seats || [];
 };
 
-/**
- * Cập nhật trạng thái ghế (đặt hoặc huỷ)
- */
+export async function findUnavailableSeats(showtimeId: string, seats: string[]): Promise<string[]> {
+  const seatDoc = await seatCollection.doc(showtimeId).get();
+  if (!seatDoc.exists) return [];
+
+  const data = seatDoc.data();
+  const bookedSeats = (data?.seats || [])
+    .filter((s: Seat) => s.isBooked)
+    .map((s: Seat) => s.seatId);
+
+  return seats.filter(s => bookedSeats.includes(s));
+}
+
 export const updateSeatStatus = async (showtimeId: string, seats: string[], status: boolean) => {
   const seatRef = firebaseDB.collection('seats').doc(showtimeId);
   const seatDoc = await seatRef.get();
@@ -36,18 +43,13 @@ export const updateSeatStatus = async (showtimeId: string, seats: string[], stat
   return updated;
 };
 
-/**
- * Tạo sơ đồ ghế mặc định (10 hàng x 10 ghế = 100 ghế)
- */
 const generateDefaultSeats = (): Seat[] => {
   const rows = 'ABCDEFGHIJ';
   const seats: Seat[] = [];
-
   for (const r of rows) {
     for (let n = 1; n <= 10; n++) {
       seats.push({ seatId: `${r}${n}`, isBooked: false });
     }
   }
-
   return seats;
 };
