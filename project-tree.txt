@@ -68,7 +68,6 @@
    │  │  ├─ controller.ts
    │  │  ├─ dto.ts
    │  │  ├─ service.ts
-   │  │  ├─ types.ts
    │  │  └─ routes.ts
    │  ├─ test/
    │  │  ├─ controller.ts

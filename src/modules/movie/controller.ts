@@ -6,20 +6,18 @@ import * as movieService from "./service";
  * tags:
  *   name: Movies
  *   description: Quản lý phim
- */
-
-/**
- * @swagger
+ *
  * components:
  *   schemas:
  *     Movie:
  *       type: object
  *       required:
+ *         - id
  *         - title
- *         - description
- *         - release
+ *         - createdAt
+ *         - updatedAt
  *       properties:
- *         movie_id:
+ *         id:
  *           type: string
  *           description: Mã phim
  *         title:
@@ -28,60 +26,48 @@ import * as movieService from "./service";
  *         description:
  *           type: string
  *           description: Mô tả phim
- *         imdb:
- *           type: number
- *           format: float
- *           description: Điểm IMDB
- *         certificate:
+ *         genres:
+ *           type: array
+ *           description: Thể loại phim, ví dụ "Crime, Drama"
+ *           items:
+ *             type: string
+ *         duration:
  *           type: string
- *           description: Giấy phép / Cấm đoán
- *         runtime:
- *           type: string
- *           description: Thời lượng phim
- *         release:
- *           type: string
- *           description: Năm phát hành
- *         genre:
- *           type: string
- *           description: Thể loại phim
- *         writer:
- *           type: string
- *           description: Tác giả kịch bản
+ *           description: Thời lượng phim (phút)
  *         director:
  *           type: string
- *           description: Đạo diễn
  *         cast:
  *           type: array
  *           items:
  *             type: string
  *           description: Dàn diễn viên
- *         poster:
+ *         releaseDate:
+ *           type: string
+ *           description: Ngày hoặc năm phát hành, ví dụ "1957"
+ *         posterUrl:
  *           type: string
  *           format: uri
- *           description: URL ảnh poster phim
+ *         bannerImageUrl:
+ *           type: string
+ *           format: uri
  *         trailerUrl:
  *           type: string
  *           format: uri
- *           description: URL nhúng trailer từ YouTube
+ *         imdbRating:
+ *           type: number
+ *         language:
+ *           type: string
  *         status:
  *           type: string
- *           enum: [now_showing, coming_soon]
- *           description: Trạng thái phim
- *       example:
- *         movie_id: "1"
- *         title: "12 Angry Men"
- *         description: "The defense and the prosecution have rested..."
- *         imdb: 9.0
- *         certificate: "NR"
- *         runtime: "1h 36m"
- *         release: "1957"
- *         genre: "Crime, Drama"
- *         writer: "Reginald Rose"
- *         director: "Sidney Lumet"
- *         cast: ["Martin Balsam", "John Fiedler", "Lee J. Cobb"]
- *         poster: "https://example.com/poster.jpg"
- *         trailerUrl: "https://www.youtube.com/embed/example"
- *         status: now_showing
+ *           enum: [now_showing, coming_soon, ended]
+ *         isTopMovie:
+ *           type: boolean
+ *         ageRating:
+ *           type: string
+ *         createdAt:
+ *           type: number
+ *         updatedAt:
+ *           type: number
  */
 
 /**
@@ -101,7 +87,7 @@ import * as movieService from "./service";
  *                 $ref: '#/components/schemas/Movie'
  */
 export async function getMovies(req: Request, res: Response) {
-  const data = await movieService.getMoviesWithStatus(); // gọi service mới
+  const data = await movieService.getMoviesWithStatus();
   res.json(data);
 }
 
@@ -144,7 +130,45 @@ export async function getMovieById(req: Request, res: Response) {
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/Movie'
+ *             type: object
+ *             required:
+ *               - title
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               genres:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               duration:
+ *                 type: string
+ *               director:
+ *                 type: string
+ *               cast:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               releaseDate:
+ *                 type: string
+ *               posterUrl:
+ *                 type: string
+ *               bannerImageUrl:
+ *                 type: string
+ *               trailerUrl:
+ *                 type: string
+ *               imdbRating:
+ *                 type: number
+ *               language:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: [now_showing, coming_soon, ended]
+ *               isTopMovie:
+ *                 type: boolean
+ *               ageRating:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Tạo thành công
@@ -175,7 +199,43 @@ export async function createMovie(req: Request, res: Response) {
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/Movie'
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               genres:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               duration:
+ *                 type: string
+ *               director:
+ *                 type: string
+ *               cast:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               releaseDate:
+ *                 type: string
+ *               posterUrl:
+ *                 type: string
+ *               bannerImageUrl:
+ *                 type: string
+ *               trailerUrl:
+ *                 type: string
+ *               imdbRating:
+ *                 type: number
+ *               language:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: [now_showing, coming_soon, ended]
+ *               isTopMovie:
+ *                 type: boolean
+ *               ageRating:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Cập nhật thành công
