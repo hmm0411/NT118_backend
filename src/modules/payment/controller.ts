@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import * as paymentService from './service';
 import { CreatePaymentDto } from './dto';
+import * as qr from '../../utils/qrcode';
+import { firebaseAuth } from '../../config/firebase';
 
 /**
  * @swagger
@@ -15,7 +17,7 @@ import { CreatePaymentDto } from './dto';
  *       required:
  *         - bookingId
  *       properties:
- *         bookingId:
+ *         bookingId: 
  *           type: string
  *           example: "aBc123xyz"
  */
@@ -60,11 +62,22 @@ export const handleMakePayment = async (req: Request, res: Response, next: NextF
   try {
     const body: CreatePaymentDto = req.body;
     const result = await paymentService.makePayment(body.bookingId);
+    const qrPayload = {
+      bookingId: body.bookingId,
+      status: 'paid',
+      timestamp: new Date().toISOString(),
+      user: (req.user as any).email || 'guest@example.com',
+    };
+
+    const qrCode = await qr.generate(JSON.stringify(qrPayload));
 
     res.status(200).json({
       success: true,
       message: 'Thanh toán thành công',
-      data: result,
+      data: {
+        result,
+        qrCode,
+      },
     });
   } catch (error) {
     next(error);

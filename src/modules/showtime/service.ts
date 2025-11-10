@@ -28,6 +28,16 @@ export const getById = async (id: string): Promise<Showtime | null> => {
   return { id: doc.id, ...doc.data() } as Showtime;
 };
 
+export const getByMovieAndCinema = async (movieId: string, cinemaId: string): Promise<Showtime[]> => {
+  const snapshot = await firebaseDB
+    .collection(COLLECTION)
+    .where("movieId", "==", movieId)
+    .where("cinemaId", "==", cinemaId)
+    .get();
+
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Showtime[];
+};
+
 export const create = async (data: any): Promise<Showtime> => {
   const payload = {
     ...data,

@@ -113,11 +113,22 @@ import { CreateShowtimeDto, UpdateShowtimeDto } from "./dto";
  */
 export const handleGetAllShowtimes = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { movieId } = req.query;
+    const { movieId, cinemaId } = req.query;
 
     let showtimes;
-    if (movieId) showtimes = await showtimeService.getByMovie(movieId as string);
-    else showtimes = await showtimeService.getAll();
+    if (movieId && cinemaId) {
+      // Lấy suất chiếu cho 1 phim ở 1 rạp
+      showtimes = await showtimeService.getByMovieAndCinema(
+        movieId as string,
+        cinemaId as string
+      );
+    } else if (movieId) {
+      showtimes = await showtimeService.getByMovie(movieId as string);
+    } else if (cinemaId) {
+      showtimes = await showtimeService.getByCinema(cinemaId as string);
+    } else {
+      showtimes = await showtimeService.getAll();
+    }
 
     res.status(200).json({
       success: true,
