@@ -1,13 +1,7 @@
+// controller.ts
 import { Request, Response, NextFunction } from 'express';
 import * as seatService from './service';
 import { UpdateSeatStatusDto } from './dto';
-
-/**
- * @swagger
- * tags:
- *   - name: Seats
- *     description: API quản lý ghế ngồi cho từng suất chiếu
- */
 
 /**
  * @swagger
@@ -31,14 +25,14 @@ import { UpdateSeatStatusDto } from './dto';
  *       type: object
  *       required:
  *         - seats
- *         - status
+ *         - isBooked
  *       properties:
  *         seats:
  *           type: array
  *           items:
  *             type: string
  *           example: ["A1", "A2"]
- *         status:
+ *         isBooked:
  *           type: boolean
  *           example: true
  */
@@ -72,14 +66,7 @@ import { UpdateSeatStatusDto } from './dto';
  *                 data:
  *                   type: array
  *                   items:
- *                     type: object
- *                     properties:
- *                       seatId:
- *                         type: string
- *                         example: A1
- *                       isBooked:
- *                         type: boolean
- *                         example: false
+ *                     $ref: '#/components/schemas/Seat'
  */
 export const handleGetSeats = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -115,14 +102,29 @@ export const handleGetSeats = async (req: Request, res: Response, next: NextFunc
  *             $ref: '#/components/schemas/UpdateSeatStatusDto'
  *     responses:
  *       200:
- *         description: Cập nhật thành công
+ *         description: Cập nhật trạng thái ghế thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Cập nhật trạng thái ghế thành công
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Seat'
  */
 export const handleUpdateSeatStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { showtimeId } = req.params;
     const body: UpdateSeatStatusDto = req.body;
 
-    const updatedSeats = await seatService.updateSeatStatus(showtimeId, body.seats, body.status);
+    const updatedSeats = await seatService.updateSeatStatus(showtimeId, body.seats, body.isBooked);
 
     res.status(200).json({
       success: true,

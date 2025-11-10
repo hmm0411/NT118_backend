@@ -2,13 +2,16 @@
 
 import { Router } from 'express';
 import * as regionController from './controller';
+import { auth, optionalAuth, isAdmin } from "../../middleware/auth";
 
 const router = Router();
 
-// === Routes công khai (Public) ===
+// Public routes
 router.get('/', regionController.handleGetAllRegions);
-router.post('/', regionController.handleCreateRegion);
-router.patch('/:id', regionController.handleUpdateRegion);
-router.delete('/:id', regionController.handleDeleteRegion);
+
+// Private routes
+router.post('/', auth, regionController.handleCreateRegion);
+router.patch('/:id', auth, regionController.handleUpdateRegion);
+router.delete('/:id', auth, regionController.handleDeleteRegion);
 
 export default router;

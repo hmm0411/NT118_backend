@@ -1,4 +1,8 @@
 export interface Seat {
-  seatId: string;
-  isBooked: boolean;
+  id: string;
+  showtimeId: string;
+  seatNumber: string;
+  status: "available" | "booked";
+  createdAt: Date;
+  updatedAt: Date;
 }
