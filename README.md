@@ -138,9 +138,201 @@ curl -X POST http://localhost:5000/api/auth/register \\
 
 ---
 
-## Phát triển & test
+# Hướng Dẫn Triển Khai Cine Backend Lên Azure 
 
-- Chạy unit tests: (hiện chưa có tests trong repo)
-- Build production: `npm run build` rồi `npm start` (hoặc Docker image).
+## Tổng quan kiến trúc
+
+```
+
+[VS Code / Local PC]
+↓ docker build + push
+[Azure Container Registry (ACR)]
+↓ pull image
+[Azure App Service Container]
+↓
+[https://cine-backend-app.azurewebsites.net](https://cine-backend-app.azurewebsites.net)
+
+````
+
+---
+
+## Chuẩn bị môi trường
+
+### Yêu cầu:
+- **Docker Desktop**  
+  👉 [https://www.docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop)
+
+- **Azure CLI**  
+  👉 [https://learn.microsoft.com/en-us/cli/azure/install-azure-cli](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
+
+- Quyền truy cập Azure Resource Group: **NT118**
+- Quyền pull/push image đến **ACR:** `cineappregistry.azurecr.io`
+- App Service: **cine-backend-app**
+
+---
+
+##  Đăng nhập Azure & Container Registry
+
+```bash
+# Login Azure (mở trình duyệt xác thực)
+az login
+
+# Login ACR (Azure Container Registry)
+az acr login --name cineappregistry
+````
+
+> Nếu thành công: sẽ hiện `Login Succeeded`
+
+---
+
+## Build & Push image mới
+
+Từ thư mục project `cine-backend`, chạy:
+
+```bash
+# Build image
+docker build -t cineappregistry.azurecr.io/cine-backend:latest .
+
+# Push image lên ACR
+docker push cineappregistry.azurecr.io/cine-backend:latest
+```
+
+> Nếu lần đầu build hơi lâu vì Docker tải base image (`node:18-alpine`)
+
+---
+
+## Cấu hình App Service (nếu cần)
+
+###  Biến môi trường cần thiết
+
+Trong Azure Portal → **cine-backend-app → Configuration → Application settings → New Application Setting**
+
+| Tên biến                   | Giá trị mẫu                                                        |
+| -------------------------- | ------------------------------------------------------------------ |
+| `PORT`                     | `8080`                                                             |
+| `JWT_SECRET`               | `supersecret`                                                      |
+| `FIREBASE_CREDENTIAL_PATH` | `./src/config/nt118-8452f-firebase-adminsdk-fbsvc-8342f8803e.json` |
+
+>  Không dùng `FIREBASE_PRIVATE_KEY` trực tiếp vì Azure sẽ lỗi ký tự xuống dòng.
+>  Sử dụng file JSON thay thế (đã copy sẵn vào container qua `Dockerfile`).
+
+---
+
+## Cấu hình Dockerfile 
+
+```dockerfile
+# Stage 1: Build
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+# Stage 2: Runtime
+FROM node:18-alpine
+WORKDIR /app
+COPY --from=builder /app/package*.json ./
+RUN npm install --omit=dev
+COPY --from=builder /app/dist ./dist
+COPY src/config/nt118-8452f-firebase-adminsdk-fbsvc-8342f8803e.json ./src/config/
+ENV PORT=8080
+EXPOSE 8080
+CMD ["node", "dist/server.js"]
+```
+
+---
+
+## Deploy & Restart WebApp
+
+Sau khi push image xong, Azure App Service sẽ tự nhận image mới.
+Nếu muốn restart thủ công:
+
+```bash
+az webapp restart --name cine-backend-app --resource-group NT118
+```
+
+---
+
+## Kiểm tra trạng thái container
+
+```bash
+az webapp log tail --name cine-backend-app --resource-group NT118
+```
+
+Nếu log hiện:
+
+```
+{"message": "Ciné API running"}
+```
+
+→ Backend đã khởi chạy thành công!
+
+---
+
+## Kiểm tra API trên trình duyệt
+
+Truy cập:
+ [https://cine-backend-app.azurewebsites.net](https://cine-backend-app.azurewebsites.net)
+
+Kết quả:
+
+```json
+{ "message": "Ciné API running" }
+```
+
+---
+
+##  Hướng dẫn cho teammate (pull hoặc deploy)
+
+### Pull image từ ACR để chạy local:
+
+```bash
+az login
+az acr login --name cineappregistry
+docker pull cineappregistry.azurecr.io/cine-backend:latest
+docker run -d -p 8080:8080 cineappregistry.azurecr.io/cine-backend:latest
+```
+
+### Cập nhật phiên bản mới:
+
+```bash
+# Build & push version mới
+docker build -t cineappregistry.azurecr.io/cine-backend:v2 .
+docker push cineappregistry.azurecr.io/cine-backend:v2
+```
+
+→ Vào Azure Portal → App Service → Configuration
+→ Đổi `Image tag` thành `v2` → Save → Restart app.
+
+---
+
+## Debug các lỗi thường gặp
+
+| Lỗi                                     | Nguyên nhân                              | Cách khắc phục                                                 |
+| --------------------------------------- | ---------------------------------------- | -------------------------------------------------------------- |
+| `Failed to parse private key`           | Private key Firebase bị sai format       | Dùng file JSON credential                                      |
+| `Container didn't respond on port 8080` | App dùng port khác (5000)                | Đặt `PORT=8080` trong `.env` và `EXPOSE 8080` trong Dockerfile |
+| `manifest not found`                    | Azure chưa thấy image `latest` trong ACR | Push lại image `latest` đúng tên                               |
+| `unauthorized: authentication required` | Chưa login ACR hoặc chưa bật Admin user  | Chạy `az acr login` và bật admin access trong Azure Portal     |
+
+---
+
+## Kết quả cuối cùng
+
+Backend hoạt động trên:
+ [https://cine-backend-app.azurewebsites.net](https://cine-backend-app.azurewebsites.net)**
+
+Trả về:
+
+```json
+{ "message": "Ciné API running" }
+```
+
+Mọi lần update code chỉ cần:
+
+1. `docker build`
+2. `docker push`
+3. `az webapp restart`
 
 ---
