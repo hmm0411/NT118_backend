@@ -3,6 +3,20 @@ import { Movie } from "./types";
 
 const COLLECTION = "movies";
 
+export async function getMoviesWithStatus(): Promise<(Movie & { status: "now_showing" | "coming_soon" })[]> {
+  const snapshot = await firebaseDB.collection(COLLECTION).get();
+  const now = new Date();
+  
+  return snapshot.docs.map((doc) => {
+    const movie = { id: doc.id, ...doc.data() } as Movie;
+    const releaseDate = movie.releaseDate ? new Date(movie.releaseDate) : now;
+
+    const status: "now_showing" | "coming_soon" = releaseDate <= now ? "now_showing" : "coming_soon";
+
+    return { ...movie, status };
+  });
+}
+
 export async function getMovies(): Promise<Movie[]> {
   const snapshot = await firebaseDB.collection(COLLECTION).get();
   return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Movie[];
