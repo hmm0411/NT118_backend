@@ -63,6 +63,10 @@ import * as movieService from "./service";
  *           type: string
  *           format: uri
  *           description: URL nhúng trailer từ YouTube
+ *         status:
+ *           type: string
+ *           enum: [now_showing, coming_soon]
+ *           description: Trạng thái phim
  *       example:
  *         movie_id: "1"
  *         title: "12 Angry Men"
@@ -77,6 +81,7 @@ import * as movieService from "./service";
  *         cast: ["Martin Balsam", "John Fiedler", "Lee J. Cobb"]
  *         poster: "https://example.com/poster.jpg"
  *         trailerUrl: "https://www.youtube.com/embed/example"
+ *         status: now_showing
  */
 
 /**
@@ -96,7 +101,7 @@ import * as movieService from "./service";
  *                 $ref: '#/components/schemas/Movie'
  */
 export async function getMovies(req: Request, res: Response) {
-  const data = await movieService.getMovies();
+  const data = await movieService.getMoviesWithStatus(); // gọi service mới
   res.json(data);
 }
 
