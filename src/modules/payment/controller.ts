@@ -94,3 +94,59 @@
       next(error);
     }
   };
+
+  /**
+ * @swagger
+ * /api/payment/tickets:
+ *   get:
+ *     summary: Lấy vé điện tử của người dùng (chỉ booking đã thanh toán)
+ *     tags: [Payment]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Danh sách vé điện tử
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       bookingId:
+ *                         type: string
+ *                       qrCode:
+ *                         type: string
+ *                       paidAt:
+ *                         type: string
+ *                         format: date-time
+ */
+export const handleGetMyTickets = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userEmail = (req.user as any)?.email;
+    if (!userEmail) {
+      return res.status(401).json({ success: false, message: 'User không hợp lệ.' });
+    }
+
+    const snapshot = await firebaseDB
+      .collection('payments')
+      .where('user', '==', userEmail)
+      .where('status', '==', 'paid')
+      .get();
+
+    const tickets = snapshot.docs.map(doc => doc.data());
+
+    res.status(200).json({
+      success: true,
+      data: tickets,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
