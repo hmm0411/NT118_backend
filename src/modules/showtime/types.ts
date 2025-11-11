@@ -4,7 +4,6 @@ export interface Showtime {
   cinemaId: string;
   startTime: Date;
   endTime: Date;
-  price: number;
   createdAt: Date;
   updatedAt: Date;
 }
