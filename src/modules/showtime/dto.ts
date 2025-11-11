@@ -12,9 +12,6 @@ export class CreateShowtimeDto {
 
   @IsDateString()
   endTime!: string;
-
-  @IsNumber()
-  price!: number;
 }
 
 export class UpdateShowtimeDto {
@@ -23,7 +20,4 @@ export class UpdateShowtimeDto {
 
   @IsDateString()
   endTime?: string;
-
-  @IsNumber()
-  price?: number;
 }

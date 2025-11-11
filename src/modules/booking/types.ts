@@ -1,10 +1,13 @@
+import { Timestamp } from "firebase-admin/firestore";
+
 // types.ts
 export interface Booking {
-  id?: string;
+  id: string;
   userId: string;
-  showtimeId: string;
+  sessionId: string;
+  showtime: string;
   seats: string[];
   totalPrice: number;
   status: 'pending' | 'paid' | 'cancelled';
-  createdAt: Date;
+  createdAt: Timestamp;
 }

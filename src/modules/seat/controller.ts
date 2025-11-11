@@ -1,4 +1,3 @@
-// controller.ts
 import { Request, Response, NextFunction } from 'express';
 import * as seatService from './service';
 import { UpdateSeatStatusDto } from './dto';
@@ -7,71 +6,36 @@ import { UpdateSeatStatusDto } from './dto';
  * @swagger
  * tags:
  *   - name: Seats
- *     description: API quản lý ghế ngồi cho từng suất chiếu
- *
- * components:
- *   schemas:
- *     Seat:
- *       type: object
- *       properties:
- *         seatId:
- *           type: string
- *           example: A1
- *         isBooked:
- *           type: boolean
- *           example: false
- *
- *     UpdateSeatStatusDto:
- *       type: object
- *       required:
- *         - seats
- *         - isBooked
- *       properties:
- *         seats:
- *           type: array
- *           items:
- *             type: string
- *           example: ["A1", "A2"]
- *         isBooked:
- *           type: boolean
- *           example: true
+ *     description: API quản lý ghế ngồi cho từng suất chiếu (showtime)
  */
 
 /**
  * @swagger
- * /api/seats/{showtimeId}:
+ * /api/seats/{sessionId}/{showtime}:
  *   get:
- *     summary: Lấy danh sách ghế cho suất chiếu
+ *     summary: Lấy danh sách ghế cho một suất chiếu (showtime) cụ thể
  *     tags: [Seats]
  *     parameters:
- *       - name: showtimeId
- *         in: path
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: showtime
  *         required: true
  *         schema:
  *           type: string
  *     responses:
  *       200:
  *         description: Danh sách ghế
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Lấy danh sách ghế thành công
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Seat'
+ *       404:
+ *         description: Không tìm thấy
  */
 export const handleGetSeats = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { showtimeId } = req.params;
-    const seats = await seatService.getSeatsByShowtime(showtimeId);
+    const { sessionId, showtime } = req.params;
+    const seats = await seatService.getSeatsBySession(sessionId, showtime);
     res.status(200).json({
       success: true,
       message: 'Lấy danh sách ghế thành công',
@@ -84,13 +48,20 @@ export const handleGetSeats = async (req: Request, res: Response, next: NextFunc
 
 /**
  * @swagger
- * /api/seats/{showtimeId}/book:
+ * /api/seats/{sessionId}/{showtime}/book:
  *   patch:
- *     summary: Cập nhật trạng thái ghế (đặt hoặc huỷ)
+ *     summary: Cập nhật trạng thái nhiều ghế
  *     tags: [Seats]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
- *       - name: showtimeId
- *         in: path
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: showtime
  *         required: true
  *         schema:
  *           type: string
@@ -102,29 +73,23 @@ export const handleGetSeats = async (req: Request, res: Response, next: NextFunc
  *             $ref: '#/components/schemas/UpdateSeatStatusDto'
  *     responses:
  *       200:
- *         description: Cập nhật trạng thái ghế thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Cập nhật trạng thái ghế thành công
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Seat'
+ *         description: Thành công
+ *       400:
+ *         description: Ghế đã được đặt
+ *       404:
+ *         description: Không tồn tại
  */
 export const handleUpdateSeatStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { showtimeId } = req.params;
+    const { sessionId, showtime } = req.params;
     const body: UpdateSeatStatusDto = req.body;
 
-    const updatedSeats = await seatService.updateSeatStatus(showtimeId, body.seats, body.isBooked);
+    const updatedSeats = await seatService.updateSeatStatus(
+      sessionId,
+      showtime,
+      body.seats,
+      body.isBooked
+    );
 
     res.status(200).json({
       success: true,

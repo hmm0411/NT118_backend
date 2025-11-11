@@ -4,7 +4,7 @@ import { auth } from '../../middleware/auth';
 
 const router = Router();
 
-router.get('/:showtimeId', handleGetSeats);
-router.patch('/:showtimeId/book', auth, handleUpdateSeatStatus);
+router.get('/:sessionId/:showtime', handleGetSeats);
+router.patch('/:sessionId/:showtime/book', handleUpdateSeatStatus);
 
 export default router;

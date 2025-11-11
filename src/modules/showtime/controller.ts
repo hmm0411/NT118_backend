@@ -18,7 +18,6 @@ import { CreateShowtimeDto, UpdateShowtimeDto } from "./dto";
  *         - cinemaId
  *         - startTime
  *         - endTime
- *         - price
  *       properties:
  *         id:
  *           type: string
@@ -32,8 +31,6 @@ import { CreateShowtimeDto, UpdateShowtimeDto } from "./dto";
  *         endTime:
  *           type: string
  *           format: date-time
- *         price:
- *           type: number
  *         createdAt:
  *           type: string
  *           format: date-time
@@ -46,7 +43,6 @@ import { CreateShowtimeDto, UpdateShowtimeDto } from "./dto";
  *         cinemaId: "cinema001"
  *         startTime: "2025-11-07T18:30:00Z"
  *         endTime: "2025-11-07T20:30:00Z"
- *         price: 90000
  *         createdAt: "2025-11-07T08:30:00Z"
  *         updatedAt: "2025-11-07T09:00:00Z"
  *
@@ -57,7 +53,6 @@ import { CreateShowtimeDto, UpdateShowtimeDto } from "./dto";
  *         - cinemaId
  *         - startTime
  *         - endTime
- *         - price
  *       properties:
  *         movieId:
  *           type: string
@@ -73,9 +68,6 @@ import { CreateShowtimeDto, UpdateShowtimeDto } from "./dto";
  *           type: string
  *           format: date-time
  *           example: "2025-11-07T20:30:00Z"
- *         price:
- *           type: number
- *           example: 90000
  *
  *     UpdateShowtimeDto:
  *       type: object
@@ -86,8 +78,6 @@ import { CreateShowtimeDto, UpdateShowtimeDto } from "./dto";
  *         endTime:
  *           type: string
  *           format: date-time
- *         price:
- *           type: number
  */
 
 /**

@@ -1,14 +1,8 @@
-// dto.ts
-import { IsString, IsArray, IsNumber, ArrayNotEmpty } from 'class-validator';
+// src/modules/booking/dto.ts
 
 export class CreateBookingDto {
-  @IsString()
-  showtimeId!: string;
-
-  @IsArray()
-  @ArrayNotEmpty()
-  seats!: string[];
-
-  @IsNumber()
-  totalPrice!: number;
+  sessionId!: string;
+  showtime!: string;
+  seats!: string[]; // Ví dụ: ["A1", "A2"]
+  totalPrice!: number; // Server nên xác thực lại giá này
 }
