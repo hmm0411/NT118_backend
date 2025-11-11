@@ -1,3 +1,5 @@
+// src/modules/booking/controller.ts
+
 import { Request, Response, NextFunction } from 'express';
 import * as bookingService from './service';
 import { CreateBookingDto } from './dto';
@@ -5,27 +7,43 @@ import { CreateBookingDto } from './dto';
 /**
  * @swagger
  * tags:
- *   - name: Booking
- *     description: API quản lý đặt vé xem phim
+ *   - name: Bookings
+ *     description: API quản lý đặt vé
  *
  * components:
  *   schemas:
- *     Booking:
+ *     CreateBookingDto:
  *       type: object
  *       required:
- *         - id
- *         - userId
- *         - showtimeId
+ *         - sessionId
+ *         - showtime
  *         - seats
  *         - totalPrice
- *         - status
- *         - createdAt
+ *       properties:
+ *         sessionId:
+ *           type: string
+ *         showtime:
+ *           type: string
+ *           description: Suất chiếu (ví dụ "09:00")
+ *         seats:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["A1", "A2"]
+ *         totalPrice:
+ *           type: number
+ *           example: 150000
+ *
+ *     Booking:
+ *       type: object
  *       properties:
  *         id:
  *           type: string
  *         userId:
  *           type: string
- *         showtimeId:
+ *         sessionId:
+ *           type: string
+ *         showtime:
  *           type: string
  *         seats:
  *           type: array
@@ -36,45 +54,26 @@ import { CreateBookingDto } from './dto';
  *         status:
  *           type: string
  *           enum: [pending, paid, cancelled]
+ *           example: "pending"
  *         createdAt:
  *           type: string
  *           format: date-time
- *       example:
- *         id: "bk123xyz"
- *         userId: "uid_123"
- *         showtimeId: "st456abc"
- *         seats: ["A1", "A2"]
- *         totalPrice: 180000
- *         status: "pending"
- *         createdAt: "2025-11-07T08:30:00Z"
  *
- *     CreateBookingDto:
+ *     ErrorResponse:
  *       type: object
- *       required:
- *         - showtimeId
- *         - seats
- *         - totalPrice
  *       properties:
- *         showtimeId:
+ *         success:
+ *           type: boolean
+ *           example: false
+ *         message:
  *           type: string
- *           example: "st456abc"
- *         seats:
- *           type: array
- *           items:
- *             type: string
- *           example: ["A1", "A2"]
- *         totalPrice:
- *           type: number
- *           example: 180000
- */
-
-/**
- * @swagger
+ *           example: "Ghế A1 đã được người khác đặt."
+ *
+ *
  * /api/booking:
  *   post:
- *     summary: Tạo đơn đặt vé mới
- *     description: Người dùng gửi thông tin đặt vé (suất chiếu, ghế, giá tiền). Mặc định trạng thái là `pending`.
- *     tags: [Booking]
+ *     summary: Tạo một booking mới
+ *     tags: [Bookings]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -85,7 +84,7 @@ import { CreateBookingDto } from './dto';
  *             $ref: '#/components/schemas/CreateBookingDto'
  *     responses:
  *       201:
- *         description: Tạo đơn đặt vé thành công
+ *         description: Tạo booking thành công
  *         content:
  *           application/json:
  *             schema:
@@ -93,77 +92,129 @@ import { CreateBookingDto } from './dto';
  *               properties:
  *                 success:
  *                   type: boolean
- *                   example: true
  *                 message:
  *                   type: string
- *                   example: Tạo đơn đặt vé thành công
+ *                 data:
+ *                   $ref: '#/components/schemas/Booking'
+ *       400:
+ *         description: Lỗi nghiệp vụ
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Yêu cầu xác thực
+ *
+ *   get:
+ *     summary: Lấy lịch sử đặt vé của người dùng
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Danh sách booking của người dùng hiện tại
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Booking'
+ *       401:
+ *         description: Yêu cầu xác thực
+ *
+ *
+ * /api/booking/{bookingId}:
+ *   get:
+ *     summary: Lấy chi tiết 1 booking
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: bookingId
+ *         in: path
+ *         required: true
+ *         description: ID của booking
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Chi tiết booking
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
  *                 data:
  *                   $ref: '#/components/schemas/Booking'
  *       401:
- *         description: Thiếu token hoặc không hợp lệ
+ *         description: Yêu cầu xác thực
+ *       403:
+ *         description: Không có quyền truy cập booking này
+ *       404:
+ *         description: Không tìm thấy booking
  */
+
 export const handleCreateBooking = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user?.uid; // lấy từ middleware auth firebase
     const body: CreateBookingDto = req.body;
+    const userId = (req as any).user.uid;
 
-    const booking = await bookingService.createBooking({
-      userId,
-      showtimeId: body.showtimeId,
-      seats: body.seats,
-      totalPrice: body.totalPrice,
-      status: 'pending',
-      createdAt: new Date(),
-    });
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User không hợp lệ.' });
+    }
+
+    const newBooking = await bookingService.createBooking(userId, body);
 
     res.status(201).json({
       success: true,
-      message: 'Tạo đơn đặt vé thành công',
-      data: booking,
+      message: 'Tạo booking thành công',
+      data: newBooking,
     });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * @swagger
- * /api/booking:
- *   get:
- *     summary: Lấy danh sách vé đã đặt của người dùng
- *     description: Trả về danh sách các đơn đặt vé thuộc về người dùng hiện tại.
- *     tags: [Booking]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Lấy danh sách vé của người dùng thành công
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Booking'
- *       401:
- *         description: Thiếu token hoặc không hợp lệ
- */
-export const handleGetUserBookings = async (req: Request, res: Response, next: NextFunction) => {
+export const handleGetMyBookings = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as any).user?.uid;
-    const bookings = await bookingService.getBookingsByUser(userId);
+    const userId = (req as any).user.uid;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User không hợp lệ.' });
+    }
+
+    const bookings = await bookingService.getMyBookings(userId);
+
     res.status(200).json({
       success: true,
-      message: 'Lấy danh sách vé của người dùng thành công',
       data: bookings,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const handleGetBookingById = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.uid;
+    const { bookingId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User không hợp lệ.' });
+    }
+
+    const booking = await bookingService.getBookingById(bookingId, userId);
+
+    res.status(200).json({
+      success: true,
+      data: booking,
     });
   } catch (error) {
     next(error);

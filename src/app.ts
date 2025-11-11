@@ -10,9 +10,10 @@ import testRoutes from "./modules/test/routes";
 import movieRoutes from "./modules/movie/routes";
 import regionRoutes from "./modules/region/routes";
 import cinemaRouters from "./modules/cinema/routes";
-import showtimeRouters from "./modules/showtime/routes";
+//import showtimeRouters from "./modules/showtime/routes";
 import seatRouters from "./modules/seat/routes";
 import paymentRouters from "./modules/payment/routes";
+import sessionRouters from "./modules/session/routes";
 import session from "express-session";
 import { setupSwagger } from "./config/swagger";
 
@@ -20,7 +21,11 @@ const app = express();
 
 // Basic middleware
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: '*', // hoặc '*' nếu muốn cho tất cả origin
+  methods: ['GET','POST','PUT','DELETE'],
+  allowedHeaders: ['Content-Type','Authorization']
+}));
 app.use(helmet());
 app.use(morgan("dev"));
 app.use(session({
@@ -44,9 +49,10 @@ app.use("/api/test", testRoutes);
 app.use("/api/movies", movieRoutes);
 app.use("/api/regions", regionRoutes);
 app.use("/api/cinemas", cinemaRouters);
-app.use("/api/showtimes", showtimeRouters);
+//app.use("/api/showtimes", showtimeRouters);
 app.use("/api/seats", seatRouters);
 app.use("/api/payment", paymentRouters);
+app.use("/api/sessions", sessionRouters);
 
 // Error handling
 app.use(errorHandler);
