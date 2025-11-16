@@ -1,133 +1,107 @@
-// src/modules/region/service.ts
-
-import { IRegion } from './types';
+import { Region, RegionDocument } from './model';
 import { CreateRegionDto, UpdateRegionDto } from './dto';
 import { firebaseDB } from '../../config/firebase';
-import { FieldValue } from 'firebase-admin/firestore';
-
-/**
- * ApiError chuẩn cho service
- */
-export class ApiError extends Error {
-  statusCode: number;
-  constructor(statusCode: number, message: string) {
-    super(message);
-    this.statusCode = statusCode;
-    Object.setPrototypeOf(this, ApiError.prototype);
-  }
-}
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { ApiError } from '../../utils/ApiError'; // Import lỗi từ file util
 
 const REGION_COLLECTION = 'regions';
 
-/**
- * Lấy tất cả khu vực
- */
-export const getAllRegions = async (): Promise<IRegion[]> => {
-  const snapshot = await firebaseDB.collection(REGION_COLLECTION)
-    .orderBy('name', 'asc')
-    .get();
+export class RegionService {
+  private collection = firebaseDB.collection(REGION_COLLECTION);
 
-  if (snapshot.empty) return [];
-
-  return snapshot.docs.map(doc => {
-    const data = doc.data();
+  /**
+   * Chuyển đổi DocumentData sang interface Region
+   */
+  private toRegion(doc: FirebaseFirestore.DocumentSnapshot): Region {
+    const data = doc.data() as RegionDocument;
     return {
       id: doc.id,
       name: data.name,
-      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
-      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
+      createdAt: (data.createdAt as Timestamp).toDate(),
+      updatedAt: (data.updatedAt as Timestamp).toDate(),
     };
-  });
-};
+  }
 
-/**
- * Tạo khu vực mới (Admin)
- */
-export const createRegion = async (data: CreateRegionDto): Promise<IRegion> => {
-  const { name } = data;
+  /**
+   * Lấy tất cả khu vực
+   */
+  async getAllRegions(): Promise<Region[]> {
+    const snapshot = await this.collection.orderBy('name', 'asc').get();
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(this.toRegion);
+  }
 
-  // Kiểm tra trùng tên
-  const existingSnapshot = await firebaseDB.collection(REGION_COLLECTION)
-    .where('name', '==', name)
-    .limit(1)
-    .get();
+  /**
+   * Tạo khu vực mới (Admin)
+   */
+  async createRegion(data: CreateRegionDto): Promise<Region> {
+    const { name } = data;
 
-  if (!existingSnapshot.empty) throw new ApiError(400, 'Tên khu vực đã tồn tại');
+    // Kiểm tra trùng tên
+    const existingSnapshot = await this.collection.where('name', '==', name).limit(1).get();
+    if (!existingSnapshot.empty) {
+      throw new ApiError(400, 'Tên khu vực đã tồn tại');
+    }
 
-  const newRegionData = {
-    name,
-    createdAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
-  };
+    const newRegionData = {
+      name,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    };
 
-  // Thêm document
-  const docRef = await firebaseDB.collection(REGION_COLLECTION).add(newRegionData);
-  const newDoc = await docRef.get();
-  const docData = newDoc.data();
+    const docRef = await this.collection.add(newRegionData);
+    const newDoc = await docRef.get();
+    
+    return this.toRegion(newDoc);
+  }
 
-  if (!docData) throw new ApiError(500, 'Lỗi khi tạo khu vực');
+  /**
+   * Cập nhật khu vực (Admin)
+   */
+  async updateRegion(regionId: string, data: UpdateRegionDto): Promise<Region> {
+    const docRef = this.collection.doc(regionId);
+    const docSnapshot = await docRef.get();
 
-  return {
-    id: newDoc.id,
-    name: docData.name,
-    createdAt: docData.createdAt?.toDate ? docData.createdAt.toDate() : new Date(),
-    updatedAt: docData.updatedAt?.toDate ? docData.updatedAt.toDate() : new Date(),
-  };
-};
+    if (!docSnapshot.exists) {
+      throw new ApiError(404, 'Không tìm thấy khu vực');
+    }
 
-/**
- * Cập nhật khu vực (Admin)
- */
-export const updateRegion = async (regionId: string, data: UpdateRegionDto): Promise<IRegion> => {
-  const docRef = firebaseDB.collection(REGION_COLLECTION).doc(regionId);
-  const docSnapshot = await docRef.get();
+    // Kiểm tra trùng tên nếu có thay đổi
+    if (data.name) {
+      const existingSnapshot = await this.collection.where('name', '==', data.name).limit(1).get();
+      if (!existingSnapshot.empty && existingSnapshot.docs[0].id !== regionId) {
+        throw new ApiError(400, 'Tên khu vực đã tồn tại');
+      }
+    }
 
-  if (!docSnapshot.exists) throw new ApiError(404, 'Không tìm thấy khu vực');
+    const updateData = { ...data, updatedAt: FieldValue.serverTimestamp() };
+    await docRef.update(updateData);
 
-  // Kiểm tra trùng tên nếu có thay đổi
-  if (data.name) {
-    const existingSnapshot = await firebaseDB.collection(REGION_COLLECTION)
-      .where('name', '==', data.name)
+    const updatedDoc = await docRef.get();
+    return this.toRegion(updatedDoc);
+  }
+
+  /**
+   * Xóa khu vực (Admin)
+   */
+  async deleteRegion(regionId: string): Promise<void> {
+    const docRef = this.collection.doc(regionId);
+    const docSnapshot = await docRef.get();
+
+    if (!docSnapshot.exists) {
+      throw new ApiError(404, 'Không tìm thấy khu vực');
+    }
+
+    // Kiểm tra ràng buộc: khu vực đang có rạp
+    const cinemaSnapshot = await firebaseDB.collection('cinemas')
+      .where('regionId', '==', regionId)
       .limit(1)
       .get();
 
-    if (!existingSnapshot.empty && existingSnapshot.docs[0].id !== regionId) {
-      throw new ApiError(400, 'Tên khu vực đã tồn tại');
+    if (!cinemaSnapshot.empty) {
+      throw new ApiError(400, 'Không thể xóa khu vực đang có rạp chiếu phim');
     }
+
+    await docRef.delete();
   }
-
-  const updateData = { ...data, updatedAt: FieldValue.serverTimestamp() };
-  await docRef.update(updateData);
-
-  const updatedDoc = await docRef.get();
-  const updatedData = updatedDoc.data();
-
-  if (!updatedData) throw new ApiError(500, 'Lỗi khi lấy dữ liệu sau cập nhật');
-
-  return {
-    id: updatedDoc.id,
-    name: updatedData.name,
-    createdAt: updatedData.createdAt?.toDate ? updatedData.createdAt.toDate() : new Date(),
-    updatedAt: updatedData.updatedAt?.toDate ? updatedData.updatedAt.toDate() : new Date(),
-  };
-};
-
-/**
- * Xóa khu vực (Admin)
- */
-export const deleteRegion = async (regionId: string): Promise<void> => {
-  const docRef = firebaseDB.collection(REGION_COLLECTION).doc(regionId);
-  const docSnapshot = await docRef.get();
-
-  if (!docSnapshot.exists) throw new ApiError(404, 'Không tìm thấy khu vực');
-
-  // Kiểm tra ràng buộc: khu vực đang có rạp
-  const cinemaSnapshot = await firebaseDB.collection('cinemas')
-    .where('regionId', '==', regionId)
-    .limit(1)
-    .get();
-
-  if (!cinemaSnapshot.empty) throw new ApiError(400, 'Không thể xóa khu vực đang có rạp chiếu phim');
-
-  await docRef.delete();
-};
+}

@@ -1,82 +1,57 @@
-// src/modules/region/controller.ts
-
 import { Request, Response, NextFunction } from 'express';
-import * as regionService from './service';
+import { RegionService } from './service';
 import { CreateRegionDto, UpdateRegionDto } from './dto';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { ApiError } from '../../utils/ApiError';
+
+const regionService = new RegionService();
 
 /**
  * @swagger
  * tags:
- *   - name: Regions
- *     description: API quản lý khu vực
+ * - name: Regions
+ * description: API quản lý khu vực
  *
  * components:
- *   schemas:
- *     Region:
- *       type: object
- *       required:
- *         - id
- *         - name
- *       properties:
- *         id:
- *           type: string
- *         name:
- *           type: string
- *         createdAt:
- *           type: string
- *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- *       example:
- *         id: "clx123abc456"
- *         name: "Hồ Chí Minh"
- *         createdAt: "2025-11-04T08:30:00Z"
- *         updatedAt: "2025-11-04T10:00:00Z"
- *
- *     CreateRegionDto:
- *       type: object
- *       required:
- *         - name
- *       properties:
- *         name:
- *           type: string
- *           example: "Đà Nẵng"
- *
- *     UpdateRegionDto:
- *       type: object
- *       properties:
- *         name:
- *           type: string
- *           example: "Đà Nẵng - Quảng Nam"
+ * schemas:
+ * Region:
+ * type: object
+ * required: [id, name]
+ * properties:
+ * id: { type: string }
+ * name: { type: string }
+ * createdAt: { type: string, format: date-time }
+ * updatedAt: { type: string, format: date-time }
+ * example:
+ * id: "clx123abc456"
+ * name: "Hồ Chí Minh"
+ * createdAt: "2025-11-04T08:30:00Z"
+ * updatedAt: "2025-11-04T10:00:00Z"
  */
 
 /**
  * @swagger
  * /api/regions:
- *   get:
- *     summary: Lấy danh sách tất cả khu vực
- *     tags: [Regions]
- *     responses:
- *       200:
- *         description: Thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Lấy danh sách khu vực thành công
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Region'
+ * get:
+ * summary: Lấy danh sách tất cả khu vực
+ * tags: [Regions]
+ * responses:
+ * 200:
+ * description: Thành công
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * properties:
+ * success: { type: boolean, example: true }
+ * message: { type: string, example: Lấy danh sách khu vực thành công }
+ * data:
+ * type: array
+ * items:
+ * $ref: '#/components/schemas/Region'
  */
-export const handleGetAllRegions = async (req: Request, res: Response, next: NextFunction) => {
+export const getAllRegions = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const regions = await regionService.getAllRegions();
     res.status(200).json({
@@ -92,36 +67,41 @@ export const handleGetAllRegions = async (req: Request, res: Response, next: Nex
 /**
  * @swagger
  * /api/regions:
- *   post:
- *     summary: Tạo khu vực mới (Admin)
- *     tags: [Regions]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/CreateRegionDto'
- *     responses:
- *       201:
- *         description: Tạo khu vực thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Tạo khu vực thành công
- *                 data:
- *                   $ref: '#/components/schemas/Region'
+ * post:
+ * summary: Tạo khu vực mới (Admin)
+ * tags: [Regions]
+ * requestBody:
+ * required: true
+ * content:
+ * application/json:
+ * schema:
+ * $ref: '#/components/schemas/CreateRegionDto'
+ * responses:
+ * 201:
+ * description: Tạo khu vực thành công
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * properties:
+ * success: { type: boolean, example: true }
+ * message: { type: string, example: Tạo khu vực thành công }
+ * data:
+ * $ref: '#/components/schemas/Region'
+ * 400:
+ * description: Dữ liệu không hợp lệ hoặc Tên đã tồn tại
  */
-export const handleCreateRegion = async (req: Request, res: Response, next: NextFunction) => {
+export const createRegion = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const createData: CreateRegionDto = req.body;
-    const newRegion = await regionService.createRegion(createData);
+    const dto = plainToInstance(CreateRegionDto, req.body);
+    const errors = await validate(dto);
+    
+    if (errors.length > 0) {
+      // Chuyển lỗi validation thành ApiError
+      throw new ApiError(400, 'Dữ liệu không hợp lệ', errors);
+    }
+
+    const newRegion = await regionService.createRegion(dto);
     res.status(201).json({
       success: true,
       message: 'Tạo khu vực thành công',
@@ -135,44 +115,50 @@ export const handleCreateRegion = async (req: Request, res: Response, next: Next
 /**
  * @swagger
  * /api/regions/{id}:
- *   patch:
- *     summary: Cập nhật khu vực (Admin)
- *     tags: [Regions]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: ID khu vực cần cập nhật
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/UpdateRegionDto'
- *     responses:
- *       200:
- *         description: Cập nhật thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Cập nhật khu vực thành công
- *                 data:
- *                   $ref: '#/components/schemas/Region'
+ * patch:
+ * summary: Cập nhật khu vực (Admin)
+ * tags: [Regions]
+ * parameters:
+ * - { in: path, name: id, required: true, schema: { type: string } }
+ * requestBody:
+ * required: true
+ * content:
+ * application/json:
+ * schema:
+ * $ref: '#/components/schemas/UpdateRegionDto'
+ * responses:
+ * 200:
+ * description: Cập nhật thành công
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * properties:
+ * success: { type: boolean, example: true }
+ * message: { type: string, example: Cập nhật khu vực thành công }
+ * data:
+ * $ref: '#/components/schemas/Region'
+ * 400:
+ * description: Dữ liệu không hợp lệ hoặc Tên đã tồn tại
+ * 404:
+ * description: Không tìm thấy khu vực
  */
-export const handleUpdateRegion = async (req: Request, res: Response, next: NextFunction) => {
+export const updateRegion = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const regionId = req.params.id;
-    const updateData: UpdateRegionDto = req.body;
-    const updatedRegion = await regionService.updateRegion(regionId, updateData);
+    const dto = plainToInstance(UpdateRegionDto, req.body);
+    const errors = await validate(dto, { skipMissingProperties: true });
+
+    if (errors.length > 0) {
+      throw new ApiError(400, 'Dữ liệu không hợp lệ', errors);
+    }
+    
+    // Đảm bảo body không rỗng
+    if (Object.keys(dto).length === 0) {
+        throw new ApiError(400, 'Cần ít nhất một trường để cập nhật');
+    }
+
+    const updatedRegion = await regionService.updateRegion(regionId, dto);
     res.status(200).json({
       success: true,
       message: 'Cập nhật khu vực thành công',
@@ -186,32 +172,27 @@ export const handleUpdateRegion = async (req: Request, res: Response, next: Next
 /**
  * @swagger
  * /api/regions/{id}:
- *   delete:
- *     summary: Xóa khu vực (Admin)
- *     tags: [Regions]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: ID khu vực cần xóa
- *     responses:
- *       200:
- *         description: Xóa thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Xóa khu vực thành công
+ * delete:
+ * summary: Xóa khu vực (Admin)
+ * tags: [Regions]
+ * parameters:
+ * - { in: path, name: id, required: true, schema: { type: string } }
+ * responses:
+ * 200:
+ * description: Xóa thành công
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * properties:
+ * success: { type: boolean, example: true }
+ * message: { type: string, example: Xóa khu vực thành công }
+ * 400:
+ * description: Không thể xóa khu vực đang có rạp
+ * 404:
+ * description: Không tìm thấy khu vực
  */
-export const handleDeleteRegion = async (req: Request, res: Response, next: NextFunction) => {
+export const deleteRegion = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const regionId = req.params.id;
     await regionService.deleteRegion(regionId);

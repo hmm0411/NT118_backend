@@ -1,17 +1,17 @@
-// src/modules/region/routes.ts
-
-import { Router } from 'express';
-import * as regionController from './controller';
+import { Router } from "express";
+import * as controller from "./controller";
 import { auth, optionalAuth, isAdmin } from "../../middleware/auth";
 
 const router = Router();
 
-// Public routes
-router.get('/', regionController.handleGetAllRegions);
+// === Public Routes ===
+// Bất kỳ ai cũng có thể xem danh sách khu vực
+router.get("/", controller.getAllRegions);
 
-// Private routes
-router.post('/', auth, regionController.handleCreateRegion);
-router.patch('/:id', auth, regionController.handleUpdateRegion);
-router.delete('/:id', auth, regionController.handleDeleteRegion);
+// === Admin Routes ===
+// Chỉ admin mới được quyền C-U-D
+router.post("/", auth, isAdmin, controller.createRegion);
+router.patch("/:id", auth, isAdmin, controller.updateRegion);
+router.delete("/:id", auth, isAdmin, controller.deleteRegion);
 
 export default router;

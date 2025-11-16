@@ -1,94 +1,112 @@
 import { firebaseDB } from "../../config/firebase";
-import { Movie } from "./types";
+import { Movie, MovieDocument } from "./model";
+import { CreateMovieDto, UpdateMovieDto } from "./dto";
+import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 
 const COLLECTION = "movies";
+const moviesCollection = firebaseDB.collection(COLLECTION);
 
-/**
- * Lấy danh sách phim kèm trạng thái (đang chiếu / sắp chiếu)
- */
-export async function getMoviesWithStatus(): Promise<(Movie & { status: "now_showing" | "coming_soon" })[]> {
-  const snapshot = await firebaseDB.collection(COLLECTION).get();
-  const now = new Date();
+export class MovieService {
 
-  return snapshot.docs.map((doc) => {
-    const movie = { id: doc.id, ...doc.data() } as Movie;
-    const releaseDate = movie.releaseDate ? new Date(movie.releaseDate) : now;
-    const status: "now_showing" | "coming_soon" = releaseDate <= now ? "now_showing" : "coming_soon";
-    return { ...movie, status };
-  });
-}
+  /**
+   * Lấy danh sách phim kèm trạng thái (đang chiếu / sắp chiếu)
+   */
+  async getMoviesWithStatus(): Promise<(Movie & { status: "now_showing" | "coming_soon" })[]> {
+    const snapshot = await moviesCollection.get();
+    const now = new Date();
 
-/**
- * Lấy tất cả phim
- */
-export async function getMovies(): Promise<Movie[]> {
-  const snapshot = await firebaseDB.collection(COLLECTION).get();
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Movie[];
-}
+    return snapshot.docs.map((doc) => {
+      const movie = { id: doc.id, ...doc.data() } as Movie;
+      
+      let status: "now_showing" | "coming_soon" = "coming_soon";
+      // Xử lý logic status (dùng releaseDate hoặc status trong DB)
+      if (movie.status && movie.status !== 'ended') {
+          status = movie.status;
+      } else if (movie.releaseDate) {
+          const releaseDate = new Date(movie.releaseDate);
+          status = releaseDate <= now ? "now_showing" : "coming_soon";
+      }
 
-/**
- * Lấy phim theo ID
- */
-export async function getMovieById(id: string): Promise<Movie | null> {
-  const doc = await firebaseDB.collection(COLLECTION).doc(id).get();
-  if (!doc.exists) return null;
-  return { id: doc.id, ...doc.data() } as Movie;
-}
+      return { ...movie, status };
+    });
+  }
 
-/**
- * Tạo phim mới
- */
-export async function createMovie(data: Partial<Movie>): Promise<Movie> {
-  const now = Date.now();
+  /**
+   * Lấy phim theo ID
+   */
+  async getMovieById(id: string): Promise<Movie | null> {
+    const doc = await moviesCollection.doc(id).get();
+    if (!doc.exists) return null;
+    return { id: doc.id, ...doc.data() } as Movie;
+  }
 
-  const movie: Movie = {
-    id: "",
-    title: data.title || "Untitled",
-    description: data.description || "",
-    genres: data.genres || [],
-    duration: data.duration || "0",
-    director: data.director || "",
-    cast: data.cast || [],
-    releaseDate: data.releaseDate || "",
-    posterUrl: data.posterUrl || "",
-    bannerImageUrl: data.bannerImageUrl || "",
-    trailerUrl: data.trailerUrl || "",
-    imdbRating: data.imdbRating || 0,
-    language: data.language || "",
-    status: data.status || "coming_soon",
-    isTopMovie: data.isTopMovie || false,
-    ageRating: data.ageRating || "",
-    createdAt: now,
-    updatedAt: now,
-  };
+  /**
+   * Tạo phim mới
+   */
+  async createMovie(dto: CreateMovieDto): Promise<Movie> {
+    const now = Timestamp.now();
 
-  const ref = await firebaseDB.collection(COLLECTION).add(movie);
-  await ref.update({ id: ref.id });
-  const snap = await ref.get();
-  return snap.data() as Movie;
-}
+    const movieDoc: MovieDocument = {
+      ...dto,
+      title: dto.title,
+      // Đặt giá trị default cho các trường optional
+      description: dto.description || "",
+      genres: dto.genres || [],
+      duration: dto.duration || "0",
+      director: dto.director || "",
+      cast: dto.cast || [],
+      releaseDate: dto.releaseDate || "",
+      posterUrl: dto.posterUrl || "",
+      bannerImageUrl: dto.bannerImageUrl || "",
+      trailerUrl: dto.trailerUrl || "",
+      imdbRating: dto.imdbRating || 0,
+      language: dto.language || "",
+      status: dto.status || "coming_soon",
+      isTopMovie: dto.isTopMovie || false,
+      ageRating: dto.ageRating || "",
+      // Dùng Timestamp
+      createdAt: now,
+      updatedAt: now,
+    };
 
-/**
- * Cập nhật phim
- */
-export async function updateMovie(id: string, data: Partial<Movie>): Promise<Movie | null> {
-  const ref = firebaseDB.collection(COLLECTION).doc(id);
-  const snap = await ref.get();
-  if (!snap.exists) return null;
+    const ref = await moviesCollection.add(movieDoc);
+    // Cập nhật ID vào document (tốt cho query)
+    await ref.update({ id: ref.id }); 
+    const snap = await ref.get();
+    
+    return { id: snap.id, ...snap.data() } as Movie;
+  }
 
-  await ref.update({ ...data, updatedAt: Date.now() });
-  const updated = await ref.get();
-  return updated.data() as Movie;
-}
+  /**
+   * Cập nhật phim
+   */
+  async updateMovie(id: string, dto: UpdateMovieDto): Promise<Movie | null> {
+    const ref = moviesCollection.doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) return null;
 
-/**
- * Xóa phim
- */
-export async function removeMovie(id: string) {
-  const ref = firebaseDB.collection(COLLECTION).doc(id);
-  const snap = await ref.get();
-  if (!snap.exists) return null;
+    // Chuyển DTO thành object sạch, loại bỏ undefined
+    const updateData: Record<string, any> = { ...dto };
+    Object.keys(updateData).forEach(key => 
+      updateData[key] === undefined && delete updateData[key]
+    );
 
-  await ref.delete();
-  return { id, message: "Movie deleted successfully" };
+    updateData.updatedAt = Timestamp.now();
+
+    await ref.update(updateData);
+    const updated = await ref.get();
+    return { id: updated.id, ...updated.data() } as Movie;
+  }
+
+  /**
+   * Xóa phim
+   */
+  async removeMovie(id: string): Promise<{ id: string; message: string } | null> {
+    const ref = moviesCollection.doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) return null;
+
+    await ref.delete();
+    return { id, message: "Movie deleted successfully" };
+  }
 }
