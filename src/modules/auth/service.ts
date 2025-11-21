@@ -1,43 +1,39 @@
-import * as jwt from "jsonwebtoken";
-import { env } from "../../config/env";
-import { firebaseAuth, firebaseDB } from "../../config/firebase";
+import { firebaseDB } from "../../config/firebase";
+import { DecodedIdToken } from "firebase-admin/auth";
+import { Timestamp } from "firebase-admin/firestore";
 
-export async function register({ email, password, name }: any) {
-    try {
-        // Create user in Firebase Authentication
-        const userRecord = await firebaseAuth.createUser({
-            email,
-            password,
-            displayName: name
-        });
+const usersCollection = firebaseDB.collection("users");
 
-        // Store additional user data in Firestore
-        await firebaseDB.collection('users').doc(userRecord.uid).set({
-            email,
-            name,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        });
+export class AuthService {
+  /**
+   * Sync user từ Firebase Auth Token vào Firestore
+   */
+  async syncUser(decodedToken: DecodedIdToken) {
+    const { uid, email, name, picture, phone_number } = decodedToken;
+    
+    // 1. Thử lấy user từ Firestore dựa trên UID
+    const userRef = usersCollection.doc(uid);
+    const doc = await userRef.get();
+    const now = Timestamp.now();
 
-        // Create custom token
-        const token = await firebaseAuth.createCustomToken(userRecord.uid);
+    // 2. Nếu user chưa tồn tại -> Tạo mới
+    if (!doc.exists) {
+      const newUser = {
+        email: email || "",
+        name: name || "New User",
+        avatar: picture || "",
+        phone: phone_number || "",
+        role: 'user',
+        createdAt: now,
+        updatedAt: now,
+      };
 
-        return { message: "User registered successfully", token };
-    } catch (error: any) {
-        throw new Error(error.message);
+      await userRef.set(newUser);
+      
+      return { id: uid, ...newUser, isNewUser: true };
     }
-}
 
-export async function login({ email, password }: any) {
-    try {
-        // Get user by email
-        const userRecord = await firebaseAuth.getUserByEmail(email);
-
-        // Create custom token
-        const token = await firebaseAuth.createCustomToken(userRecord.uid);
-
-        return { token };
-    } catch (error) {
-        throw new Error('Invalid credentials');
-    }
+    // 3. Nếu user đã tồn tại -> Trả về thông tin cũ
+    return { id: doc.id, ...doc.data(), isNewUser: false };
+  }
 }

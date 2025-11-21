@@ -1,7 +1,7 @@
 import { firebaseDB } from "../../config/firebase";
 import { Movie, MovieDocument } from "./model";
 import { CreateMovieDto, UpdateMovieDto } from "./dto";
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
 
 const COLLECTION = "movies";
 const moviesCollection = firebaseDB.collection(COLLECTION);
@@ -9,98 +9,74 @@ const moviesCollection = firebaseDB.collection(COLLECTION);
 export class MovieService {
 
   /**
-   * Lấy danh sách phim kèm trạng thái (đang chiếu / sắp chiếu)
+   * Lấy danh sách phim kèm logic tính toán status
    */
-  async getMoviesWithStatus(): Promise<(Movie & { status: "now_showing" | "coming_soon" })[]> {
-    const snapshot = await moviesCollection.get();
+  async getMoviesWithStatus(): Promise<(Movie & { computedStatus: string })[]> {
+    const snapshot = await moviesCollection.orderBy('createdAt', 'desc').get();
     const now = new Date();
 
     return snapshot.docs.map((doc) => {
-      const movie = { id: doc.id, ...doc.data() } as Movie;
+      const data = doc.data() as MovieDocument;
+      const movie = { id: doc.id, ...data } as Movie;
       
-      let status: "now_showing" | "coming_soon" = "coming_soon";
-      // Xử lý logic status (dùng releaseDate hoặc status trong DB)
-      if (movie.status && movie.status !== 'ended') {
-          status = movie.status;
-      } else if (movie.releaseDate) {
+      // Logic ưu tiên: Nếu có field status trong DB thì dùng, nếu không thì tính theo ngày
+      let computedStatus = movie.status || 'coming_soon';
+
+      if (!movie.status && movie.releaseDate) {
           const releaseDate = new Date(movie.releaseDate);
-          status = releaseDate <= now ? "now_showing" : "coming_soon";
+          // Nếu ngày phát hành <= hiện tại => Đang chiếu
+          computedStatus = releaseDate <= now ? "now_showing" : "coming_soon";
       }
 
-      return { ...movie, status };
+      return { ...movie, computedStatus };
     });
   }
 
-  /**
-   * Lấy phim theo ID
-   */
   async getMovieById(id: string): Promise<Movie | null> {
     const doc = await moviesCollection.doc(id).get();
     if (!doc.exists) return null;
     return { id: doc.id, ...doc.data() } as Movie;
   }
 
-  /**
-   * Tạo phim mới
-   */
   async createMovie(dto: CreateMovieDto): Promise<Movie> {
     const now = Timestamp.now();
 
+    // Loại bỏ các giá trị undefined để Firestore không bị lỗi
+    const cleanData = JSON.parse(JSON.stringify(dto));
+
     const movieDoc: MovieDocument = {
-      ...dto,
-      title: dto.title,
-      // Đặt giá trị default cho các trường optional
-      description: dto.description || "",
-      genres: dto.genres || [],
-      duration: dto.duration || "0",
-      director: dto.director || "",
-      cast: dto.cast || [],
-      releaseDate: dto.releaseDate || "",
-      posterUrl: dto.posterUrl || "",
-      bannerImageUrl: dto.bannerImageUrl || "",
-      trailerUrl: dto.trailerUrl || "",
-      imdbRating: dto.imdbRating || 0,
-      language: dto.language || "",
-      status: dto.status || "coming_soon",
-      isTopMovie: dto.isTopMovie || false,
-      ageRating: dto.ageRating || "",
-      // Dùng Timestamp
+      ...cleanData,
+      // Default values
+      isTopMovie: dto.isTopMovie ?? false,
+      status: dto.status ?? 'coming_soon',
       createdAt: now,
       updatedAt: now,
     };
 
     const ref = await moviesCollection.add(movieDoc);
-    // Cập nhật ID vào document (tốt cho query)
-    await ref.update({ id: ref.id }); 
-    const snap = await ref.get();
+    // Update ngược lại ID vào doc để tiện query phía client (nếu cần)
+    await ref.update({ id: ref.id });
     
-    return { id: snap.id, ...snap.data() } as Movie;
+    return { id: ref.id, ...movieDoc } as Movie;
   }
 
-  /**
-   * Cập nhật phim
-   */
   async updateMovie(id: string, dto: UpdateMovieDto): Promise<Movie | null> {
     const ref = moviesCollection.doc(id);
     const snap = await ref.get();
     if (!snap.exists) return null;
 
-    // Chuyển DTO thành object sạch, loại bỏ undefined
-    const updateData: Record<string, any> = { ...dto };
-    Object.keys(updateData).forEach(key => 
-      updateData[key] === undefined && delete updateData[key]
-    );
-
+    // Loại bỏ undefined values
+    const updateData: any = { ...dto };
+    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+    
     updateData.updatedAt = Timestamp.now();
 
     await ref.update(updateData);
-    const updated = await ref.get();
-    return { id: updated.id, ...updated.data() } as Movie;
+    const updatedSnap = await ref.get();
+    
+    return { id: updatedSnap.id, ...updatedSnap.data() } as Movie;
   }
 
-  /**
-   * Xóa phim
-   */
   async removeMovie(id: string): Promise<{ id: string; message: string } | null> {
     const ref = moviesCollection.doc(id);
     const snap = await ref.get();

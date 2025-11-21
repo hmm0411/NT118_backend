@@ -1,67 +1,81 @@
-// src/middleware/auth.ts
 import { Request, Response, NextFunction } from "express";
 import { firebaseAuth } from "../config/firebase";
+import { DecodedIdToken } from "firebase-admin/auth";
 
 /**
- * Middleware bắt buộc có token (Firebase ID Token)
+ * Interface này vẫn giữ để dùng cho Controller ép kiểu
  */
-export const auth = async (req: Request & { user?: any }, res: Response, next: NextFunction) => {
+export interface AuthRequest extends Request {
+  user?: DecodedIdToken;
+}
+
+/**
+ * FIX LỖI: Thay đổi tham số đầu vào thành 'req: Request' 
+ * để khớp với chuẩn của Express Router.
+ */
+export const auth = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: "No token provided",
+        message: "No token provided or invalid format (Bearer <token>)",
       });
     }
 
     const token = authHeader.split(" ")[1];
     const decodedToken = await firebaseAuth.verifyIdToken(token);
 
-    // Lưu user info (uid, email, role...) vào request
-    req.user = decodedToken;
+    // Ép kiểu req thành AuthRequest để gán user
+    (req as AuthRequest).user = decodedToken;
+    
     next();
   } catch (error) {
-    console.error("Auth middleware error:", error);
     return res.status(401).json({
       success: false,
-      message: "Unauthorized",
+      message: "Unauthorized: Invalid or expired token",
     });
   }
 };
 
 /**
- * Middleware không bắt buộc token
- * Dùng cho các route public như /movies, /showtimes
+ * Middleware Optional Auth
  */
-export const optionalAuth = async (req: Request & { user?: any }, _res: Response, next: NextFunction) => {
+export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
 
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.split(" ")[1];
       const decodedToken = await firebaseAuth.verifyIdToken(token);
-      req.user = decodedToken;
+      
+      // Ép kiểu để gán
+      (req as AuthRequest).user = decodedToken;
     }
-
+    
     next();
   } catch (error) {
-    console.warn("optionalAuth: invalid or missing token, continuing as guest");
     next();
   }
 };
 
 /**
- * Middleware kiểm tra quyền admin
+ * Middleware Admin
  */
-export const isAdmin = (req: Request & { user?: any }, res: Response, next: NextFunction) => {
-  if (!req.user) {
+export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
+  // Ép kiểu để lấy user
+  const user = (req as AuthRequest).user;
+
+  if (!user) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ success: false, message: "Forbidden - Admin only" });
+  // Kiểm tra claims (dùng any để bypass check typescript cho custom claims)
+  const userClaims = user as any; 
+
+  if (userClaims.role !== "admin" && userClaims.admin !== true) {
+    return res.status(403).json({ success: false, message: "Forbidden - Admin access required" });
   }
 
   next();

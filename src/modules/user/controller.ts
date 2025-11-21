@@ -3,19 +3,35 @@ import { UserService } from "./service";
 import { UpdateUserDto } from "./dto";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
+import { AuthRequest } from "../../middleware/auth"; // Import để ép kiểu
 
-// Khởi tạo service một lần
 const userService = new UserService();
 
 /**
+ * Hàm kiểm tra quyền sở hữu (Helper)
+ * Chỉ cho phép nếu là chính chủ hoặc là Admin
+ */
+function isOwnerOrAdmin(req: Request, targetId: string): boolean {
+  const user = (req as AuthRequest).user;
+  if (!user) return false;
+  // Cho phép nếu id trùng nhau HOẶC user có claim admin
+  // (Ép kiểu any để check field role/admin tùy setup của bạn)
+  return user.uid === targetId || (user as any).role === 'admin';
+}
+
+/**
  * GET /users/:id
- * Lấy thông tin người dùng
  */
 export async function getUser(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const user = await userService.getUserById(id);
 
+    // BẢO MẬT: Kiểm tra quyền
+    if (!isOwnerOrAdmin(req, id)) {
+      return res.status(403).json({ success: false, message: "Forbidden: Not your account" });
+    }
+
+    const user = await userService.getUserById(id);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
@@ -28,25 +44,23 @@ export async function getUser(req: Request, res: Response) {
 
 /**
  * PUT /users/:id
- * Cập nhật thông tin người dùng
  */
 export async function updateUser(req: Request, res: Response) {
   try {
     const { id } = req.params;
 
-    // 1. Chuyển req.body thành class DTO
-    const dto = plainToInstance(UpdateUserDto, req.body);
+    // BẢO MẬT
+    if (!isOwnerOrAdmin(req, id)) {
+      return res.status(403).json({ success: false, message: "Forbidden: You can only update your own profile" });
+    }
 
-    // 2. Validate DTO
+    const dto = plainToInstance(UpdateUserDto, req.body);
     const errors = await validate(dto);
     if (errors.length > 0) {
-      // Trả về lỗi validate
       return res.status(400).json({ success: false, errors });
     }
     
-    // 3. Gọi service với DTO đã được validate
     await userService.updateUser(id, dto);
-
     res.json({ success: true, message: "User updated successfully" });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -55,11 +69,16 @@ export async function updateUser(req: Request, res: Response) {
 
 /**
  * GET /users/:id/bookings
- * Lấy danh sách lịch sử đặt vé
  */
 export async function getBookings(req: Request, res: Response) {
   try {
     const { id } = req.params;
+
+    // BẢO MẬT
+    if (!isOwnerOrAdmin(req, id)) {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
+
     const bookings = await userService.getUserBookings(id);
     res.json({ success: true, bookings: bookings });
   } catch (error: any) {
