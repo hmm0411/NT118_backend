@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { firebaseAuth } from "../config/firebase";
+import { firebaseAuth, firebaseDB } from "../config/firebase";
 import { DecodedIdToken } from "firebase-admin/auth";
 
 /**
@@ -63,20 +63,37 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
 /**
  * Middleware Admin
  */
-export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
-  // Ép kiểu để lấy user
-  const user = (req as AuthRequest).user;
+export const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = (req as AuthRequest).user;
 
-  if (!user) {
-    return res.status(401).json({ success: false, message: "Unauthorized" });
+    if (!user) {
+      console.log("❌ [Admin Check] Không tìm thấy user trong request");
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    console.log("👉 [Admin Check] Đang kiểm tra UID:", user.uid);
+
+    // Truy vấn Firestore
+    const userDoc = await firebaseDB.collection('users').doc(user.uid).get();
+
+    // LOG QUAN TRỌNG: Xem tìm thấy gì trong DB
+    console.log("🔎 [Admin Check] Tìm thấy trong DB?", userDoc.exists);
+    if (userDoc.exists) {
+        console.log("📄 [Admin Check] Data:", userDoc.data());
+    } else {
+        console.log("⚠️ [Admin Check] Document không tồn tại với ID này!");
+    }
+
+    if (!userDoc.exists || userDoc.data()?.role !== 'admin') {
+      console.log("⛔ [Admin Check] Bị chặn! Role hiện tại:", userDoc.data()?.role);
+      return res.status(403).json({ success: false, message: "Forbidden - Admin access required" });
+    }
+
+    console.log("✅ [Admin Check] Hợp lệ! Cho qua.");
+    next();
+  } catch (error) {
+    console.error("Check Admin Error:", error);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
-
-  // Kiểm tra claims (dùng any để bypass check typescript cho custom claims)
-  const userClaims = user as any; 
-
-  if (userClaims.role !== "admin" && userClaims.admin !== true) {
-    return res.status(403).json({ success: false, message: "Forbidden - Admin access required" });
-  }
-
-  next();
 };

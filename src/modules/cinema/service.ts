@@ -2,7 +2,7 @@ import { Cinema, CinemaDocument } from './model';
 import { CreateCinemaDto, UpdateCinemaDto } from './dto';
 import { firebaseDB } from '../../config/firebase';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { ApiError } from '../../utils/ApiError'; // <-- SỬA IMPORT Ở ĐÂY
+import { ApiError } from '../../utils/ApiError';
 
 const CINEMA_COLLECTION = 'cinemas';
 const REGION_COLLECTION = 'regions';
@@ -10,9 +10,6 @@ const REGION_COLLECTION = 'regions';
 export class CinemaService {
   private collection = firebaseDB.collection(CINEMA_COLLECTION);
 
-  /**
-   * Chuyển đổi DocumentData sang interface Cinema
-   */
   private toCinema(doc: FirebaseFirestore.DocumentSnapshot): Cinema {
     const data = doc.data() as CinemaDocument;
     return {
@@ -25,8 +22,18 @@ export class CinemaService {
     };
   }
 
-  async getAllCinemas(): Promise<Cinema[]> {
-    const snapshot = await this.collection.get();
+  /**
+   * Lấy danh sách rạp (có thể lọc theo regionId)
+   */
+  async getAllCinemas(regionId?: string): Promise<Cinema[]> {
+    let query: FirebaseFirestore.Query = this.collection;
+
+    // Nếu có regionId -> Filter
+    if (regionId) {
+      query = query.where('regionId', '==', regionId);
+    }
+
+    const snapshot = await query.get();
     if (snapshot.empty) return [];
     return snapshot.docs.map(this.toCinema);
   }
@@ -44,8 +51,8 @@ export class CinemaService {
       name,
       address,
       regionId,
-      createdAt: Timestamp.now(), // Dùng Timestamp.now() thay vì FieldValue
-      updatedAt: Timestamp.now(), // Dùng Timestamp.now() thay vì FieldValue
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
     };
 
     const docRef = await this.collection.add(newCinema);
@@ -69,7 +76,7 @@ export class CinemaService {
       }
     }
 
-    const updateData = { ...data, updatedAt: FieldValue.serverTimestamp() };
+    const updateData = { ...data, updatedAt: Timestamp.now() };
     await docRef.update(updateData);
 
     const updatedDoc = await docRef.get();
@@ -83,8 +90,7 @@ export class CinemaService {
       throw new ApiError(404, 'Không tìm thấy rạp');
     }
 
-    // TODO (Nên thêm): Kiểm tra ràng buộc
-    // Ví dụ: Không cho xóa rạp khi đang có 'showtimes' (suất chiếu)
+    // Kiểm tra ràng buộc showtimes
     const showtimeSnapshot = await firebaseDB.collection('showtimes')
       .where('cinemaId', '==', id)
       .limit(1)

@@ -4,12 +4,10 @@ import { auth, isAdmin } from "../../middleware/auth";
 
 const router = Router();
 
-// === Public Routes ===
-// Bất kỳ ai cũng có thể xem danh sách rạp
+// Public: Lấy danh sách (Có thể kèm ?regionId=...)
 router.get('/', controller.getAllCinemas);
 
-// === Admin Routes ===
-// Chỉ admin mới được quyền C-U-D
+// Admin
 router.post('/', auth, isAdmin, controller.createCinema);
 router.patch('/:id', auth, isAdmin, controller.updateCinema);
 router.delete('/:id', auth, isAdmin, controller.deleteCinema);
