@@ -33,12 +33,18 @@ function isOwnerOrAdmin(req: Request, targetId: string): boolean {
  *     UpdateUserDto:
  *       type: object
  *       properties:
- *         displayName:
+ *         name:
  *           type: string
  *           example: "Nguyen Van A"
- *         phoneNumber:
+ *         phone:
  *           type: string
  *           example: "+84909123456"
+ *         birthday:
+ *           type: string
+ *           example: "08/11/2005"
+ *         gender:
+ *           type: string
+ *           example: "Male/Female"
  *         photoURL:
  *           type: string
  *           example: "https://example.com/avatar.jpg"
