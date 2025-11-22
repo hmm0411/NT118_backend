@@ -1,23 +1,23 @@
-import { IsString, IsDateString, IsNumber } from "class-validator";
+import { IsString, IsNotEmpty, IsDateString, IsNumber, Min } from 'class-validator';
 
 export class CreateShowtimeDto {
   @IsString()
+  @IsNotEmpty()
   movieId!: string;
 
   @IsString()
+  @IsNotEmpty()
   cinemaId!: string;
 
-  @IsDateString()
-  startTime!: string; // client gửi ISO string
+  @IsString()
+  @IsNotEmpty()
+  roomName!: string;
 
   @IsDateString()
-  endTime!: string;
-}
+  @IsNotEmpty()
+  startTime!: string; // ISO Date String
 
-export class UpdateShowtimeDto {
-  @IsDateString()
-  startTime?: string;
-
-  @IsDateString()
-  endTime?: string;
+  @IsNumber()
+  @Min(0)
+  price!: number; // Giá vé cơ bản
 }

@@ -1,17 +1,17 @@
-import { Router } from "express";
-import {
-  handleGetAllShowtimes,
-  handleCreateShowtime,
-  handleUpdateShowtime,
-  handleDeleteShowtime,
-} from "./controller";
-import { auth, optionalAuth, isAdmin } from "../../middleware/auth";
+import { Router } from 'express';
+import * as controller from './controller';
+import { auth, isAdmin } from "../../middleware/auth";
 
 const router = Router();
 
-router.get("/", handleGetAllShowtimes);
-router.post("/", auth, handleCreateShowtime);
-router.patch("/:id", auth, handleUpdateShowtime);
-router.delete("/:id", auth, handleDeleteShowtime);
+// Public: Lấy danh sách suất chiếu (để user chọn vé)
+// URL: /api/showtimes?movieId=...&regionId=...
+router.get('/', controller.getShowtimes);
+
+// Public: Lấy chi tiết suất chiếu (để hiển thị sơ đồ ghế)
+router.get('/:id', controller.getShowtimeById);
+
+// Admin: Tạo suất chiếu
+router.post('/', auth, isAdmin, controller.createShowtime);
 
 export default router;

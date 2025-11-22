@@ -1,79 +1,137 @@
-import { firebaseDB } from "../../config/firebase";
-import { Showtime } from "./types";
+import { firebaseDB } from '../../config/firebase';
+import { Showtime, ShowtimeDocument, Seat, SeatStatus, SeatType } from './model';
+import { CreateShowtimeDto } from './dto';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { ApiError } from '../../utils/ApiError';
 
-const COLLECTION = "showtimes";
+const SHOWTIME_COLLECTION = 'showtimes';
+const MOVIE_COLLECTION = 'movies';
+const CINEMA_COLLECTION = 'cinemas';
 
-export const getAll = async (): Promise<Showtime[]> => {
-  const snapshot = await firebaseDB.collection(COLLECTION).get();
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Showtime[];
-};
+export class ShowtimeService {
+  private collection = firebaseDB.collection(SHOWTIME_COLLECTION);
 
-export const getByMovie = async (movieId: string): Promise<Showtime[]> => {
-  const snapshot = await firebaseDB.collection(COLLECTION).where("movieId", "==", movieId).get();
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Showtime[];
-};
+  private toShowtime(doc: FirebaseFirestore.DocumentSnapshot): Showtime {
+    const data = doc.data() as ShowtimeDocument;
+    return {
+      id: doc.id,
+      ...data,
+      startTime: (data.startTime as Timestamp).toDate(),
+      endTime: (data.endTime as Timestamp).toDate(),
+      // createdAt và updatedAt xử lý tương tự nếu cần
+    } as Showtime;
+  }
 
-export const getByCinema = async (cinemaId: string): Promise<Showtime[]> => {
-  const snapshot = await firebaseDB.collection(COLLECTION).where("cinemaId", "==", cinemaId).get();
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Showtime[];
-};
+  /**
+   * Helper: Tạo sơ đồ ghế giả lập (5 hàng x 10 ghế)
+   * Trong thực tế, bạn sẽ lấy layout này từ module "Room"
+   */
+  private generateStandardSeats(basePrice: number): Record<string, Seat> {
+    const rows = ['A', 'B', 'C', 'D', 'E'];
+    const cols = 10;
+    const seatMap: Record<string, Seat> = {};
 
-export const getById = async (id: string): Promise<Showtime | null> => {
-  const docRef = firebaseDB.collection(COLLECTION).doc(id);
-  const doc = await docRef.get();
-  if (!doc.exists) return null;
-  return { id: doc.id, ...doc.data() } as Showtime;
-};
+    rows.forEach((row) => {
+      for (let i = 1; i <= cols; i++) {
+        const code = `${row}${i}`;
+        // Ví dụ: Hàng E là VIP, giá +20%
+        const isVip = row === 'E';
+        const type = isVip ? SeatType.VIP : SeatType.STANDARD;
+        const price = isVip ? basePrice * 1.2 : basePrice;
 
-export const getByMovieAndCinema = async (movieId: string, cinemaId: string): Promise<Showtime[]> => {
-  const snapshot = await firebaseDB
-    .collection(COLLECTION)
-    .where("movieId", "==", movieId)
-    .where("cinemaId", "==", cinemaId)
-    .get();
+        seatMap[code] = {
+          code,
+          row,
+          col: i,
+          type,
+          price,
+          status: SeatStatus.AVAILABLE,
+        };
+      }
+    });
 
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Showtime[];
-};
+    return seatMap;
+  }
 
-export const create = async (data: any): Promise<Showtime> => {
-  const payload = {
-    ...data,
-    startTime: new Date(data.startTime),
-    endTime: new Date(data.endTime),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  /**
+   * Lấy danh sách suất chiếu theo Phim và Tỉnh (Và ngày nếu cần)
+   * Đây là API chính cho màn hình "Chọn Rạp & Giờ"
+   */
+  async getShowtimes(movieId: string, regionId: string, date?: string): Promise<Showtime[]> {
+    let query = this.collection
+      .where('movieId', '==', movieId)
+      .where('regionId', '==', regionId);
 
-  const docRef = await firebaseDB.collection(COLLECTION).add(payload);
-  const snapshot = await docRef.get();
-  return { id: snapshot.id, ...snapshot.data() } as Showtime;
-};
+    // Lọc thời gian: Lấy suất chiếu > thời gian hiện tại
+    const now = Timestamp.now();
+    query = query.where('startTime', '>', now);
 
-export const update = async (id: string, data: any): Promise<Showtime | null> => {
-  const docRef = firebaseDB.collection(COLLECTION).doc(id);
-  const snapshot = await docRef.get();
-  if (!snapshot.exists) return null;
+    const snapshot = await query.orderBy('startTime', 'asc').get();
 
-  const payload: any = {
-    ...data,
-    updatedAt: new Date(),
-  };
+    if (snapshot.empty) return [];
 
-  if (data.startTime) payload.startTime = new Date(data.startTime);
-  if (data.endTime) payload.endTime = new Date(data.endTime);
+    const showtimes = snapshot.docs.map(this.toShowtime);
 
-  await docRef.update(payload);
-  const updated = await docRef.get();
-  return { id: updated.id, ...updated.data() } as Showtime;
-};
+    // Nếu có lọc theo ngày cụ thể (client gửi YYYY-MM-DD)
+    if (date) {
+      return showtimes.filter(st => {
+        const stDate = st.startTime.toISOString().split('T')[0];
+        return stDate === date;
+      });
+    }
 
-export const remove = async (id: string): Promise<boolean> => {
-  const docRef = firebaseDB.collection(COLLECTION).doc(id);
-  const snapshot = await docRef.get();
-  if (!snapshot.exists) return false;
-  await docRef.delete();
-  return true;
-};
+    return showtimes;
+  }
+
+  async getShowtimeById(id: string): Promise<Showtime | null> {
+    const doc = await this.collection.doc(id).get();
+    if (!doc.exists) return null;
+    return this.toShowtime(doc);
+  }
+
+  async createShowtime(dto: CreateShowtimeDto): Promise<Showtime> {
+    // 1. Lấy thông tin Phim
+    const movieDoc = await firebaseDB.collection(MOVIE_COLLECTION).doc(dto.movieId).get();
+    if (!movieDoc.exists) throw new ApiError(404, 'Phim không tồn tại');
+    const movieData = movieDoc.data();
+
+    // 2. Lấy thông tin Rạp (để lấy regionId và tên rạp)
+    const cinemaDoc = await firebaseDB.collection(CINEMA_COLLECTION).doc(dto.cinemaId).get();
+    if (!cinemaDoc.exists) throw new ApiError(404, 'Rạp không tồn tại');
+    const cinemaData = cinemaDoc.data();
+
+    // 3. Tính toán thời gian kết thúc (dựa vào duration phim)
+    const durationMinutes = parseInt(movieData?.duration || "0"); // VD: "120"
+    const startTimeDate = new Date(dto.startTime);
+    const endTimeDate = new Date(startTimeDate.getTime() + durationMinutes * 60000);
+
+    // 4. Sinh ghế
+    const seatMap = this.generateStandardSeats(dto.price);
+    const totalSeats = Object.keys(seatMap).length;
+
+    // 5. Tạo Doc
+    const newShowtime: ShowtimeDocument = {
+      movieId: dto.movieId,
+      movieTitle: movieData?.title || "Unknown Movie",
+      
+      cinemaId: dto.cinemaId,
+      cinemaName: cinemaData?.name || "Unknown Cinema",
+      regionId: cinemaData?.regionId || "", // Quan trọng: Lưu regionId từ rạp sang
+      
+      roomName: dto.roomName,
+      startTime: Timestamp.fromDate(startTimeDate),
+      endTime: Timestamp.fromDate(endTimeDate),
+      
+      seatMap: seatMap,
+      totalSeats: totalSeats,
+      availableSeats: totalSeats,
+      
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    };
+
+    const ref = await this.collection.add(newShowtime);
+    const newDoc = await ref.get();
+    return this.toShowtime(newDoc);
+  }
+}
