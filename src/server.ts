@@ -1,5 +1,8 @@
 import app from "./app";
 import { env } from "./config/env";
+import { startBookingCleanupJob } from "./cron/booking-cleanup";
+
+startBookingCleanupJob();
 
 async function bootstrap() {
     app.listen(env.port, () => {

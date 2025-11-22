@@ -1,12 +1,11 @@
-// routes.ts
 import { Router } from 'express';
-import { handleCreateBooking, handleGetMyBookings, handleGetBookingById } from './controller';
+import * as controller from './controller';
 import { auth } from '../../middleware/auth';
 
 const router = Router();
 
-router.post('/', auth, handleCreateBooking);
-router.get('/', auth, handleGetMyBookings);
-router.get('/:bookingId', auth, handleGetBookingById);
+router.post('/', auth, controller.createBooking);
+router.get('/', auth, controller.getMyBookings);
+router.get('/:id', auth, controller.getBookingById);
 
 export default router;
