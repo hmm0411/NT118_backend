@@ -10,121 +10,108 @@ const movieService = new MovieService();
 /**
  * @swagger
  * tags:
- * name: Movies
- * description: Quản lý phim
- *
+ *   name: Movies
+ *   description: Quản lý Phim
+ */
+
+/**
+ * @swagger
  * components:
- * schemas:
- * Movie:
- * type: object
- * properties:
- * id:
- * type: string
- * description: Mã phim
- * title:
- * type: string
- * description: Tên phim
- * description:
- * type: string
- * description: Mô tả phim
- * genres:
- * type: array
- * description: Thể loại phim
- * items: { type: string }
- * duration:
- * type: string
- * description: Thời lượng phim (phút)
- * director:
- * type: string
- * cast:
- * type: array
- * items: { type: string }
- * releaseDate:
- * type: string
- * description: Ngày phát hành (ISO date string)
- * posterUrl:
- * type: string
- * format: uri
- * bannerImageUrl:
- * type: string
- * format: uri
- * trailerUrl:
- * type: string
- * format: uri
- * imdbRating:
- * type: number
- * language:
- * type: string
- * status:
- * type: string
- * enum: [now_showing, coming_soon, ended]
- * isTopMovie:
- * type: boolean
- * ageRating:
- * type: string
- * createdAt:
- * type: string
- * format: date-time
- * description: Timestamp (Firestore)
- * updatedAt:
- * type: string
- * format: date-time
- * description: Timestamp (Firestore)
- *
- * CreateMovieDto:
- * type: object
- * properties:
- * title: { type: string, required: true }
- * description: { type: string }
- * genres: { type: array, items: { type: string } }
- * duration: { type: string }
- * director: { type: string }
- * cast: { type: array, items: { type: string } }
- * releaseDate: { type: string, format: date-time }
- * posterUrl: { type: string, format: uri }
- * bannerImageUrl: { type: string, format: uri }
- * trailerUrl: { type: string, format: uri }
- * imdbRating: { type: number }
- * language: { type: string }
- * status: { type: string, enum: [now_showing, coming_soon, ended] }
- * isTopMovie: { type: boolean }
- * ageRating: { type: string }
- *
- * UpdateMovieDto:
- * type: object
- * properties:
- * title: { type: string }
- * description: { type: string }
- * genres: { type: array, items: { type: string } }
- * duration: { type: string }
- * director: { type: string }
- * cast: { type: array, items: { type: string } }
- * releaseDate: { type: string, format: date-time }
- * posterUrl: { type: string, format: uri }
- * bannerImageUrl: { type: string, format: uri }
- * trailerUrl: { type: string, format: uri }
- * imdbRating: { type: number }
- * language: { type: string }
- * status: { type: string, enum: [now_showing, coming_soon, ended] }
- * isTopMovie: { type: boolean }
- * ageRating: { type: string }
+ *   schemas:
+ *     Movie:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           example: "movie_mai_2024"
+ *         title:
+ *           type: string
+ *           example: "Mai"
+ *         description:
+ *           type: string
+ *           example: "Phim tình cảm tâm lý do Trấn Thành đạo diễn."
+ *         genres:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["Romance", "Drama"]
+ *         duration:
+ *           type: string
+ *           description: Thời lượng (phút)
+ *           example: "131"
+ *         director:
+ *           type: string
+ *           example: "Trấn Thành"
+ *         releaseDate:
+ *           type: string
+ *           format: date
+ *           example: "2024-02-10"
+ *         posterUrl:
+ *           type: string
+ *           example: "https://example.com/poster_mai.jpg"
+ *         trailerUrl:
+ *           type: string
+ *           example: "https://youtube.com/watch?v=..."
+ *         status:
+ *           type: string
+ *           enum: [now_showing, coming_soon, ended]
+ *           example: "now_showing"
+ *         computedStatus:
+ *           type: string
+ *           description: Trạng thái tính toán tự động (dựa trên ngày phát hành)
+ *           example: "now_showing"
+ *     CreateMovieDto:
+ *       type: object
+ *       required:
+ *         - title
+ *       properties:
+ *         title:
+ *           type: string
+ *           example: "Đào, Phở và Piano"
+ *         description:
+ *           type: string
+ *         genres:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["History", "War"]
+ *         duration:
+ *           type: string
+ *           example: "100"
+ *         director:
+ *           type: string
+ *           example: "Phi Tiến Sơn"
+ *         releaseDate:
+ *           type: string
+ *           example: "2024-02-10"
+ *         posterUrl:
+ *           type: string
+ *         trailerUrl:
+ *           type: string
+ *         status:
+ *           type: string
+ *           enum: [now_showing, coming_soon, ended]
+ *     UpdateMovieDto:
+ *       type: object
+ *       description: Các trường giống CreateMovieDto nhưng đều là optional
  */
 
 /**
  * @swagger
  * /api/movies:
- * get:
- * summary: Lấy danh sách phim (kèm trạng thái)
- * tags: [Movies]
- * responses:
- * 200:
- * description: Danh sách phim
- * content:
- * application/json:
- * schema:
- * type: array
- * items:
- * $ref: '#/components/schemas/Movie'
+ *   get:
+ *     summary: Lấy danh sách phim (Home Screen)
+ *     tags: [Movies]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Trả về danh sách phim kèm trạng thái computedStatus
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Movie'
  */
 export async function getMovies(req: Request, res: Response) {
   try {
@@ -138,17 +125,24 @@ export async function getMovies(req: Request, res: Response) {
 /**
  * @swagger
  * /api/movies/{id}:
- * get:
- * summary: Lấy chi tiết phim
- * tags: [Movies]
- * parameters:
- * - { in: path, name: id, required: true, schema: { type: string } }
- * responses:
- * 200:
- * description: Chi tiết phim
- * content: { application/json: { schema: { $ref: '#/components/schemas/Movie' } } }
- * 404:
- * description: Không tìm thấy phim
+ *   get:
+ *     summary: Lấy chi tiết phim
+ *     tags: [Movies]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Chi tiết phim
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Movie'
+ *       404:
+ *         description: Không tìm thấy phim
  */
 export async function getMovieById(req: Request, res: Response) {
   try {
@@ -163,21 +157,20 @@ export async function getMovieById(req: Request, res: Response) {
 /**
  * @swagger
  * /api/movies:
- * post:
- * summary: Thêm phim mới
- * tags: [Movies]
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * $ref: '#/components/schemas/CreateMovieDto'
- * responses:
- * 211:
- * description: Tạo thành công
- * content: { application/json: { schema: { $ref: '#/components/schemas/Movie' } } }
- * 400:
- * description: Dữ liệu đầu vào không hợp lệ
+ *   post:
+ *     summary: Thêm phim mới (Admin)
+ *     tags: [Movies]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateMovieDto'
+ *     responses:
+ *       201:
+ *         description: Tạo thành công
  */
 export async function createMovie(req: Request, res: Response) {
   try {
@@ -201,25 +194,26 @@ export async function createMovie(req: Request, res: Response) {
 /**
  * @swagger
  * /api/movies/{id}:
- * put:
- * summary: Cập nhật phim
- * tags: [Movies]
- * parameters:
- * - { in: path, name: id, required: true, schema: { type: string } }
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * $ref: '#/components/schemas/UpdateMovieDto'
- * responses:
- * 200:
- * description: Cập nhật thành công
- * content: { application/json: { schema: { $ref: '#/components/schemas/Movie' } } }
- * 400:
- * description: Dữ liệu đầu vào không hợp lệ
- * 404:
- * description: Không tìm thấy phim
+ *   put:
+ *     summary: Cập nhật phim (Admin)
+ *     tags: [Movies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateMovieDto'
+ *     responses:
+ *       200:
+ *         description: Cập nhật thành công
  */
 export async function updateMovie(req: Request, res: Response) {
   try {
@@ -245,16 +239,20 @@ export async function updateMovie(req: Request, res: Response) {
 /**
  * @swagger
  * /api/movies/{id}:
- * delete:
- * summary: Xóa phim
- * tags: [Movies]
- * parameters:
- * - { in: path, name: id, required: true, schema: { type: string } }
- * responses:
- * 200:
- * description: Xóa thành công
- * 404:
- * description: Không tìm thấy phim
+ *   delete:
+ *     summary: Xóa phim (Admin)
+ *     tags: [Movies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Xóa thành công
  */
 export async function deleteMovie(req: Request, res: Response) {
   try {

@@ -20,7 +20,52 @@ function isOwnerOrAdmin(req: Request, targetId: string): boolean {
 }
 
 /**
- * GET /users/:id
+ * @swagger
+ * tags:
+ *   name: Users
+ *   description: Quản lý thông tin người dùng
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     UpdateUserDto:
+ *       type: object
+ *       properties:
+ *         displayName:
+ *           type: string
+ *           example: "Nguyen Van A"
+ *         phoneNumber:
+ *           type: string
+ *           example: "+84909123456"
+ *         photoURL:
+ *           type: string
+ *           example: "https://example.com/avatar.jpg"
+ */
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   get:
+ *     summary: Lấy thông tin chi tiết user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User UID
+ *     responses:
+ *       200:
+ *         description: Thành công
+ *       403:
+ *         description: Không có quyền xem user này
+ *       404:
+ *         description: User không tồn tại
  */
 export async function getUser(req: Request, res: Response) {
   try {
@@ -43,7 +88,28 @@ export async function getUser(req: Request, res: Response) {
 }
 
 /**
- * PUT /users/:id
+ * @swagger
+ * /api/users/{id}:
+ *   put:
+ *     summary: Cập nhật thông tin user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateUserDto'
+ *     responses:
+ *       200:
+ *         description: Cập nhật thành công
  */
 export async function updateUser(req: Request, res: Response) {
   try {
@@ -68,7 +134,22 @@ export async function updateUser(req: Request, res: Response) {
 }
 
 /**
- * GET /users/:id/bookings
+ * @swagger
+ * /api/users/{id}/bookings:
+ *   get:
+ *     summary: Lấy lịch sử đặt vé của user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Danh sách vé đã đặt
  */
 export async function getBookings(req: Request, res: Response) {
   try {

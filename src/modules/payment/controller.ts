@@ -8,7 +8,88 @@ import { ApiError } from '../../utils/ApiError';
 
 const paymentService = new PaymentService();
 
-// 2. Sửa tham số đầu vào thành 'req: Request'
+/**
+ * @swagger
+ * tags:
+ *   name: Payments
+ *   description: Thanh toán & Xuất vé QR
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     ProcessPaymentDto:
+ *       type: object
+ *       required:
+ *         - bookingId
+ *         - paymentMethod
+ *       properties:
+ *         bookingId:
+ *           type: string
+ *           description: ID của booking đang ở trạng thái pending
+ *           example: "booking_123_xyz"
+ *         paymentMethod:
+ *           type: string
+ *           enum: [momo, zalopay, card, simulator]
+ *           description: Phương thức thanh toán (hiện tại dùng 'simulator' để test)
+ *           example: "simulator"
+ *     PaymentResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         message:
+ *           type: string
+ *           example: "Thanh toán thành công! Vé của bạn đã sẵn sàng."
+ *         bookingId:
+ *           type: string
+ *           example: "booking_123_xyz"
+ *         status:
+ *           type: string
+ *           example: "paid"
+ *         qrCode:
+ *           type: string
+ *           description: Chuỗi Base64 của hình ảnh QR Code. Frontend có thể hiển thị trực tiếp bằng <img src="...">
+ *           example: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg=="
+ */
+
+/**
+ * @swagger
+ * /api/payment:
+ *   post:
+ *     summary: Xác nhận thanh toán & Xuất vé
+ *     description: "API này chuyển trạng thái vé từ PENDING -> PAID và trả về mã QR. Ghế trong rạp sẽ chuyển thành SOLD (màu đỏ)."
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProcessPaymentDto'
+ *     responses:
+ *       200:
+ *         description: Thanh toán thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/PaymentResponse'
+ *       400:
+ *         description: Lỗi nghiệp vụ (Vé đã thanh toán rồi, vé hết hạn, hoặc sai phương thức)
+ *       403:
+ *         description: Vé này không phải của bạn
+ *       404:
+ *         description: Không tìm thấy Booking ID
+ */
 export const processPayment = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // 3. Ép kiểu 'as AuthRequest' để lấy user

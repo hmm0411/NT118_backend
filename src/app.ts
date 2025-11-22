@@ -12,7 +12,7 @@ import cinemaRouters from "./modules/cinema/routes";
 import showtimeRouters from "./modules/showtime/routes";
 import paymentRouters from "./modules/payment/routes";
 import session from "express-session";
-//import { setupSwagger } from "./config/swagger";
+import { setupSwagger } from "./config/swagger";
 
 const app = express();
 
@@ -32,7 +32,7 @@ app.use(session({
     cookie: { secure: false } // set to true if using https
 }));
 
-//setupSwagger(app);
+setupSwagger(app);
 
 // Health checks
 app.get("/", (_req, res) => res.json({ message: "Ciné API running" }));
