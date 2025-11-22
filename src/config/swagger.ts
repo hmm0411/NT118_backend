@@ -37,7 +37,9 @@ const options: swaggerJsdoc.Options = {
     ],
   },
   // Đường dẫn tới các file chứa comment swagger
-  apis: ["./src/modules/**/*.ts"], 
+  apis: process.env.NODE_ENV === 'production' 
+    ? ["./dist/modules/**/controller.js", "./dist/modules/**/dto.js"] // Chạy trong Docker (JS)
+    : ["./src/modules/**/*.ts"], // Chạy Local (TS) 
 };
 
 const swaggerSpec = swaggerJsdoc(options);
