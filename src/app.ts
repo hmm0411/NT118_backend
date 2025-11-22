@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import helmet from "helmet";
+// import helmet from "helmet"; // <-- Bỏ dòng này
 import morgan from "morgan";
 import authRoutes from "./modules/auth/routes";
 import bookingRoutes from "./modules/booking/routes";
@@ -13,23 +13,26 @@ import showtimeRouters from "./modules/showtime/routes";
 import paymentRouters from "./modules/payment/routes";
 import session from "express-session";
 import { setupSwagger } from "./config/swagger";
+//import { errorHandler } from "./middleware/error"; // Nhớ import error handler
 
 const app = express();
 
 // Basic middleware
 app.use(express.json());
 app.use(cors({
-  origin: '*', // hoặc '*' nếu muốn cho tất cả origin
+  origin: '*', 
   methods: ['GET','POST','PUT','DELETE'],
   allowedHeaders: ['Content-Type','Authorization']
 }));
-app.use(helmet());
+
+// app.use(helmet()); // <-- Xóa hoặc Comment dòng này lại
+
 app.use(morgan("dev"));
 app.use(session({
     secret: "secret",
     resave: false,
     saveUninitialized: true,
-    cookie: { secure: false } // set to true if using https
+    cookie: { secure: false } 
 }));
 
 setupSwagger(app);
@@ -49,7 +52,7 @@ app.use("/api/cinemas", cinemaRouters);
 app.use("/api/showtimes", showtimeRouters);
 app.use("/api/payment", paymentRouters);
 
-// Error handling
+// Error handling (Nên bật lại cái này để bắt lỗi đẹp hơn)
 //app.use(errorHandler);
 
 export default app;

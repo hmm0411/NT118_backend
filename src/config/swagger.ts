@@ -16,8 +16,8 @@ const options: swaggerJsdoc.Options = {
     },
     servers: [
       {
-        url: `http://localhost:${env.port || 3000}`,
-        description: "Local Development Server",
+        url: "/", 
+        description: "Current Server",
       },
     ],
     // Cấu hình nút "Authorize" để nhập Token
