@@ -25,6 +25,10 @@ export interface BookingDocument {
   totalPrice: number;   // Tổng tiền
 
   status: BookingStatus;
+
+  paymentMethod?: 'momo' | 'zalopay' | 'card' | 'simulator';
+  qrCode?: string; // Lưu chuỗi Base64 của ảnh QR hoặc nội dung vé
+  paymentAt?: Timestamp;
   
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -49,4 +53,7 @@ export interface Booking {
   createdAt: Date;
   updatedAt: Date;
   expiresAt: Date;
+  paymentMethod?: string;
+  qrCode?: string;
+  paymentAt?: Timestamp;
 }

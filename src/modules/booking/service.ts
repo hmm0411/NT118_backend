@@ -36,7 +36,7 @@ export class BookingService {
 
     const now = Timestamp.now();
     // Giữ ghế trong 10 phút
-    const expiresAt = Timestamp.fromMillis(now.toMillis() + 10 * 1000); 
+    const expiresAt = Timestamp.fromMillis(now.toMillis() + 5 * 60 * 1000); 
 
     return await firebaseDB.runTransaction(async (transaction) => {
       // 1. Đọc document Showtime

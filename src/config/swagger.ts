@@ -1,53 +1,48 @@
-// import swaggerJsdoc from "swagger-jsdoc";
-// import swaggerUi from "swagger-ui-express";
-// import { Express } from "express";
-// import path from "path";
+import swaggerJsdoc from "swagger-jsdoc";
+import { Express } from "express";
+import swaggerUi from "swagger-ui-express";
+import { env } from "./env"; // Đảm bảo bạn có file env config port
 
-// export const setupSwagger = (app: Express) => {
-//   const options = {
-//     definition: {
-//       openapi: "3.0.0",
-//       info: {
-//         title: "🎬 Ciné API",
-//         version: "1.0.0",
-//         description: "API cho hệ thống đặt vé phim (Node.js + Firestore)",
-//         contact: {
-//           name: "Ciné Backend Dev Team",
-//           email: "nhloc08@gmail.com",
-//         },
-//       },
-//       servers: [
-//         {
-//           url: "http://localhost:5000",
-//           description: "Local server",
-//         },
-//       ],
-//       components: {
-//         securitySchemes: {
-//           bearerAuth: {
-//             type: "http",
-//             scheme: "bearer",
-//             bearerFormat: "JWT",
-//           },
-//         },
-//       },
-//       security: [
-//         {
-//           bearerAuth: [],
-//         },
-//       ],
-//     },
-//     // Dùng path.resolve để đảm bảo swagger-jsdoc tìm đúng các file
-//     apis: [path.resolve(__dirname, "../modules/**/*.ts")],
-//   };
+const options: swaggerJsdoc.Options = {
+  definition: {
+    openapi: "3.0.0",
+    info: {
+      title: "Ciné Booking API",
+      version: "1.0.0",
+      description: "API Documentation for Movie Ticket Booking App (Android)",
+      contact: {
+        name: "Backend Team",
+      },
+    },
+    servers: [
+      {
+        url: `http://localhost:${env.port || 3000}`,
+        description: "Local Development Server",
+      },
+    ],
+    // Cấu hình nút "Authorize" để nhập Token
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
+    security: [
+      {
+        bearerAuth: [],
+      },
+    ],
+  },
+  // Đường dẫn tới các file chứa comment swagger
+  apis: ["./src/modules/**/*.ts"], 
+};
 
-//   const specs = swaggerJsdoc(options);
+const swaggerSpec = swaggerJsdoc(options);
 
-//   app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(specs, {
-//     explorer: true,
-//     customCss: ".swagger-ui .topbar { display: none }",
-//     customSiteTitle: "Ciné API Docs",
-//   }));
-
-//   console.log("📘 Swagger Docs available at: http://localhost:5000/api/docs");
-// };
+export const setupSwagger = (app: Express) => {
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  console.log(`📄 Swagger Docs available at http://localhost:${env.port || 5000}/api-docs`);
+};

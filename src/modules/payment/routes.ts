@@ -1,11 +1,10 @@
 import { Router } from 'express';
-import { handleMakePayment, handleGetMyTickets } from './controller';
+import * as controller from './controller';
 import { auth } from '../../middleware/auth';
 
 const router = Router();
 
-// Thanh toán cần user đăng nhập
-router.post('/', auth, handleMakePayment);
-router.get("/tickets", auth, handleGetMyTickets);
+// API Thanh toán (Cần đăng nhập)
+router.post('/', auth, controller.processPayment);
 
 export default router;
