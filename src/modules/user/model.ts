@@ -2,6 +2,13 @@ import { Timestamp } from 'firebase-admin/firestore';
 
 // --- PHẦN 1: USER MODEL ---
 
+export enum MembershipRank {
+  STANDARD = 'Standard', // Mới
+  SILVER = 'Silver',     // > 1.000.000 chi tiêu
+  GOLD = 'Gold',         // > 5.000.000 chi tiêu
+  DIAMOND = 'Diamond'    // > 10.000.000 chi tiêu
+}
+
 /**
  * Định nghĩa cấu trúc dữ liệu của một User
  * được lưu trong collection 'users' trên Firestore.
@@ -11,9 +18,17 @@ export interface UserDocument {
   displayName?: string;
   photoURL?: string;
   phoneNumber?: string;
+  
   createdAt: Timestamp;
   updatedAt: Timestamp;
-  // roles?: ('user' | 'admin')[]; // Ví dụ nếu bạn cần phân quyền
+  
+  // Sửa thành 'role' (số ít) để khớp với Middleware isAdmin
+  role?: 'user' | 'admin'; 
+  
+  // --- MEMBER LOYALTY ---
+  currentPoints: number;      // Điểm hiện tại
+  totalSpending: number;      // Tổng tiền đã chi tiêu
+  rank: MembershipRank;       // Hạng hiện tại
 }
 
 /**
@@ -24,21 +39,15 @@ export interface User extends UserDocument {
   id: string; // ID của document (cũng là Auth UID)
 }
 
+// --- PHẦN 2: CÁC TYPES PHỤ TRỢ ---
 
-// --- PHẦN 2: CÁC TYPES PHỤ TRỢ (Đã gộp từ types.ts) ---
-
-/**
- * Định nghĩa hình dạng dữ liệu của một vé
- * trong lịch sử đặt vé của người dùng.
- * (Nội dung này trước đây nằm trong types.ts)
- */
 export interface BookingHistoryItem {
   id: string;
   userId: string;
   showtimeId: string;
-  movieTitle: string; // Dữ liệu denormalized để load nhanh
-  posterUrl: string; // Dữ liệu denormalized
-  cinemaName: string; // Dữ liệu denormalized
+  movieTitle: string; 
+  posterUrl: string; 
+  cinemaName: string; 
   totalPrice: number;
   seats: string[];
   createdAt: Timestamp;

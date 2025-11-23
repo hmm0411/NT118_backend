@@ -1,0 +1,72 @@
+name: Build and Deploy to AKS
+
+on:
+  push:
+    branches: [ "main" ]
+    # Theo dõi các thay đổi quan trọng (Code, Config, Docker, Helm)
+    paths:
+      - 'src/**'
+      - 'package*.json'
+      - 'tsconfig.json'
+      - 'Dockerfile'
+      - 'infra/helm/**'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Login to ACR
+      run: az acr login --name ${{ secrets.ACR_NAME }}
+
+    - name: Build and Push Docker Image
+      # Dùng github.sha (Hash commit) làm Tag để đảm bảo mỗi bản build là duy nhất
+      run: |
+        docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/cine-backend:${{ github.sha }} .
+        docker push ${{ secrets.ACR_NAME }}.azurecr.io/cine-backend:${{ github.sha }}
+
+  deploy-to-aks:
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    needs: build-and-push # Chờ job trên xong mới chạy
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Set AKS Context
+      uses: azure/aks-set-context@v3
+      with:
+        resource-group: ${{ secrets.RESOURCE_GROUP }}
+        cluster-name: ${{ secrets.CLUSTER_NAME }}
+
+    - name: Install Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: 'v3.11.1'
+
+    - name: Deploy to AKS using Helm
+      run: |
+        helm upgrade --install cine-release ./infra/helm/cine-chart \
+          --set image.repository=${{ secrets.ACR_NAME }}.azurecr.io/cine-backend \
+          --set image.tag=${{ github.sha }}

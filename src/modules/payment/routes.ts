@@ -7,4 +7,6 @@ const router = Router();
 // API Thanh toán (Cần đăng nhập)
 router.post('/', auth, controller.processPayment);
 
+router.post('/webhook/zalopay', controller.handleZaloPayWebhook);
+
 export default router;

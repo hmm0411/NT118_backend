@@ -1,6 +1,7 @@
 import { firebaseDB } from "../../config/firebase";
 import { DecodedIdToken } from "firebase-admin/auth";
 import { Timestamp } from "firebase-admin/firestore";
+import { MembershipRank, UserDocument } from "../user/model"; // Import model
 
 const usersCollection = firebaseDB.collection("users");
 
@@ -18,14 +19,19 @@ export class AuthService {
 
     // 2. Nếu user chưa tồn tại -> Tạo mới
     if (!doc.exists) {
-      const newUser = {
+      const newUser: UserDocument = {
         email: email || "",
-        name: name || "New User",
-        avatar: picture || "",
-        phone: phone_number || "",
+        displayName: name || "New User",
+        photoURL: picture || "",
+        phoneNumber: phone_number || "",
         role: 'user',
         createdAt: now,
         updatedAt: now,
+        
+        // --- KHỞI TẠO GIÁ TRỊ MẶC ĐỊNH ---
+        currentPoints: 0,
+        totalSpending: 0,
+        rank: MembershipRank.STANDARD
       };
 
       await userRef.set(newUser);

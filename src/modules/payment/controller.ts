@@ -94,18 +94,28 @@ export const processPayment = async (req: Request, res: Response, next: NextFunc
   try {
     // 3. Ép kiểu 'as AuthRequest' để lấy user
     const userId = (req as AuthRequest).user!.uid;
-    
     const dto = plainToInstance(ProcessPaymentDto, req.body);
     const errors = await validate(dto);
     if (errors.length > 0) throw new ApiError(400, 'Dữ liệu không hợp lệ', errors);
 
     const result = await paymentService.processPayment(userId, dto);
-
     res.status(200).json({
       success: true,
       data: result
     });
   } catch (error) {
     next(error);
+  }
+};
+
+export const handleZaloPayWebhook = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await paymentService.handleZaloPayCallback(req.body);
+    // Phải trả về đúng format ZaloPay yêu cầu
+    res.json(result);
+  } catch (error) {
+    console.error(error);
+    // Vẫn trả về 200 hoặc json lỗi để ZaloPay không gọi lại spam
+    res.json({ return_code: 0, return_message: "Callback Error" });
   }
 };

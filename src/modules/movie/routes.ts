@@ -9,8 +9,8 @@ router.get("/", optionalAuth, controller.getMovies);
 router.get("/:id", optionalAuth, controller.getMovieById);
 
 
-router.post("/", auth, controller.createMovie);
-router.put("/:id", auth, controller.updateMovie);
-router.delete("/:id", auth, controller.deleteMovie);
+router.post("/", auth, isAdmin, controller.createMovie);
+router.put("/:id", auth, isAdmin, controller.updateMovie);
+router.delete("/:id", auth, isAdmin, controller.deleteMovie);
 
 export default router;

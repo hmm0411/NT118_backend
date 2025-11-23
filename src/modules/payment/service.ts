@@ -5,71 +5,129 @@ import { SeatStatus } from '../showtime/model';
 import { Timestamp } from 'firebase-admin/firestore';
 import { ApiError } from '../../utils/ApiError';
 import QRCode from 'qrcode';
+import { ZaloPayService } from './zalopay.service';
 
 const BOOKING_COLLECTION = 'bookings';
 const SHOWTIME_COLLECTION = 'showtimes';
 
 export class PaymentService {
+  private zalopayService = new ZaloPayService();
   private bookingCol = firebaseDB.collection(BOOKING_COLLECTION);
   private showtimeCol = firebaseDB.collection(SHOWTIME_COLLECTION);
 
+  /**
+   * Xử lý yêu cầu thanh toán từ Client
+   */
   async processPayment(userId: string, dto: ProcessPaymentDto): Promise<any> {
     const bookingRef = this.bookingCol.doc(dto.bookingId);
+    const bookingDoc = await bookingRef.get();
 
-    // Dùng Transaction để đảm bảo: Tiền trừ thì Vé phải có
-    return await firebaseDB.runTransaction(async (transaction) => {
-      // 1. Lấy thông tin Booking
-      const bookingDoc = await transaction.get(bookingRef);
-      if (!bookingDoc.exists) {
-        throw new ApiError(404, 'Booking không tồn tại');
-      }
+    if (!bookingDoc.exists) throw new ApiError(404, 'Booking không tồn tại');
+    const bookingData = bookingDoc.data() as BookingDocument;
+
+    // 1. Validate
+    if (bookingData.userId !== userId) throw new ApiError(403, 'Booking này không phải của bạn');
+    if (bookingData.status === BookingStatus.PAID) throw new ApiError(400, 'Booking này đã thanh toán rồi');
+    if (bookingData.status === BookingStatus.CANCELLED) throw new ApiError(400, 'Booking này đã bị hủy');
+    
+    const now = Timestamp.now();
+    if (bookingData.expiresAt.toMillis() < now.toMillis()) {
+      throw new ApiError(400, 'Booking đã hết thời gian giữ ghế. Vui lòng đặt lại.');
+    }
+
+    // 2. XỬ LÝ THEO PHƯƠNG THỨC THANH TOÁN
+
+    // === NHÁNH ZALOPAY ===
+    if (dto.paymentMethod === 'zalopay') {
+      console.log("🚀 [Payment] Processing ZaloPay for Booking:", dto.bookingId);
       
+      // Gọi ZaloPay để lấy Link
+      const zaloResponse = await this.zalopayService.createPaymentOrder(
+        dto.bookingId,
+        bookingData.totalPrice,
+        userId
+      );
+
+      // Trả về Link thanh toán (KHÔNG chốt đơn ngay)
+      return {
+        paymentUrl: zaloResponse.orderUrl,
+        appTransId: zaloResponse.appTransId,
+        message: "Vui lòng thanh toán qua ZaloPay"
+      };
+    }
+
+    // === NHÁNH SIMULATOR (GIẢ LẬP) ===
+    if (dto.paymentMethod === 'simulator') {
+      console.log("🚀 [Payment] Processing Simulator for Booking:", dto.bookingId);
+      // Chốt đơn ngay lập tức
+      return await this.finalizeBooking(dto.bookingId, userId, 'simulator');
+    }
+
+    throw new ApiError(400, 'Phương thức thanh toán không hỗ trợ');
+  }
+
+  /**
+   * Xử lý Webhook từ ZaloPay
+   */
+  async handleZaloPayCallback(body: any) {
+    const verify = this.zalopayService.verifyCallback(body);
+    if (!verify.isValid) {
+      return { return_code: -1, return_message: "Mac not matched" };
+    }
+
+    const data = verify.data; 
+    const embedData = JSON.parse(data.embed_data);
+    const bookingId = embedData.bookingId;
+    const userId = embedData.userId;
+
+    console.log(`💰 [Webhook] Received success callback for Booking ${bookingId}`);
+
+    try {
+      await this.finalizeBooking(bookingId, userId, 'zalopay');
+      return { return_code: 1, return_message: "success" };
+    } catch (error) {
+      console.error("Finalize Error:", error);
+      return { return_code: 0, return_message: "Internal Server Error" };
+    }
+  }
+
+  /**
+   * Logic chung: Chốt đơn, Update DB, Tạo QR
+   */
+  private async finalizeBooking(bookingId: string, userId: string, method: string) {
+    return await firebaseDB.runTransaction(async (transaction) => {
+      const bookingRef = this.bookingCol.doc(bookingId);
+      const bookingDoc = await transaction.get(bookingRef);
+      
+      if (!bookingDoc.exists) throw new ApiError(404, 'Booking not found');
       const bookingData = bookingDoc.data() as BookingDocument;
 
-      // 2. Validate quyền sở hữu
-      if (bookingData.userId !== userId) {
-        throw new ApiError(403, 'Booking này không phải của bạn');
-      }
-
-      // 3. Validate trạng thái
       if (bookingData.status === BookingStatus.PAID) {
-        throw new ApiError(400, 'Booking này đã thanh toán rồi');
-      }
-      if (bookingData.status === BookingStatus.CANCELLED) {
-        throw new ApiError(400, 'Booking này đã bị hủy do hết hạn');
+        return { message: "Booking đã được thanh toán trước đó" };
       }
 
-      // 4. Validate thời gian (Cronjob chưa chạy thì mình chặn ở đây)
-      const now = Timestamp.now();
-      if (bookingData.expiresAt.toMillis() < now.toMillis()) {
-        throw new ApiError(400, 'Booking đã hết thời gian giữ ghế. Vui lòng đặt lại.');
-      }
-
-      // 5. Tạo nội dung QR Code (Dùng để nhân viên rạp quét)
-      // Lưu ý: Nên lưu ít thông tin thôi để QR đỡ phức tạp
+      // Tạo QR
       const qrContent = JSON.stringify({
-        bid: dto.bookingId,
+        bid: bookingId,
         uid: userId,
-        seats: bookingData.seats
+        seats: bookingData.seats,
+        time: bookingData.showtimeDate.toMillis()
       });
-      
-      // Tạo ảnh Base64
       const qrCodeBase64 = await QRCode.toDataURL(qrContent);
+      const now = Timestamp.now();
 
-      // 6. Update BOOKING (Pending -> Paid)
+      // Update Booking
       transaction.update(bookingRef, {
         status: BookingStatus.PAID,
-        paymentMethod: dto.paymentMethod,
-        paymentAt: now, // Lưu Timestamp trực tiếp như bạn muốn
+        paymentMethod: method,
+        paymentAt: now,
         qrCode: qrCodeBase64,
         updatedAt: now
       });
 
-      // 7. Update SHOWTIME (Held -> Sold)
-      // Bước này quan trọng để ghế chuyển sang màu đỏ (đã bán) vĩnh viễn
+      // Update Showtime (Seats -> SOLD)
       const showtimeRef = this.showtimeCol.doc(bookingData.showtimeId);
       const seatUpdates: any = {};
-      
       bookingData.seats.forEach(seatCode => {
         seatUpdates[`seatMap.${seatCode}.status`] = SeatStatus.SOLD;
       });
@@ -79,7 +137,7 @@ export class PaymentService {
       return {
         success: true,
         message: "Thanh toán thành công",
-        bookingId: dto.bookingId,
+        bookingId: bookingId,
         qrCode: qrCodeBase64
       };
     });
