@@ -22,19 +22,19 @@ const app = express();
 // Basic middleware
 app.use(express.json());
 app.use(cors({
-  origin: '*', 
-  methods: ['GET','POST','PUT','DELETE'],
-  allowedHeaders: ['Content-Type','Authorization']
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // app.use(helmet()); // <-- Xóa hoặc Comment dòng này lại
 
 app.use(morgan("dev"));
 app.use(session({
-    secret: "secret",
-    resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false } 
+  secret: "secret",
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false }
 }));
 
 setupSwagger(app);
