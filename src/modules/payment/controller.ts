@@ -107,15 +107,3 @@ export const processPayment = async (req: Request, res: Response, next: NextFunc
     next(error);
   }
 };
-
-export const handleZaloPayWebhook = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await paymentService.handleZaloPayCallback(req.body);
-    // Phải trả về đúng format ZaloPay yêu cầu
-    res.json(result);
-  } catch (error) {
-    console.error(error);
-    // Vẫn trả về 200 hoặc json lỗi để ZaloPay không gọi lại spam
-    res.json({ return_code: 0, return_message: "Callback Error" });
-  }
-};

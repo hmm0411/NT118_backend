@@ -5,8 +5,10 @@ import { SeatStatus } from '../showtime/model';
 import { MembershipRank } from '../user/model';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { ApiError } from '../../utils/ApiError';
+import { MomoPaymentRequest, MomoPaymentResponse } from './model';
 import QRCode from 'qrcode';
-import { ZaloPayService } from './zalopay.service';
+import axios from 'axios'; // Cần cài: npm install axios
+import * as crypto from 'crypto';
 
 const BOOKING_COLLECTION = 'bookings';
 const SHOWTIME_COLLECTION = 'showtimes';
@@ -14,7 +16,6 @@ const USER_COLLECTION = 'users';
 const VOUCHER_COLLECTION = 'vouchers';
 
 export class PaymentService {
-  private zalopayService = new ZaloPayService();
   private bookingCol = firebaseDB.collection(BOOKING_COLLECTION);
   private showtimeCol = firebaseDB.collection(SHOWTIME_COLLECTION);
 
@@ -40,24 +41,11 @@ export class PaymentService {
 
     // 2. XỬ LÝ THEO PHƯƠNG THỨC THANH TOÁN
 
-    // === NHÁNH ZALOPAY ===
-    if (dto.paymentMethod === 'zalopay') {
-      console.log("🚀 [Payment] Processing ZaloPay for Booking:", dto.bookingId);
-      
-      // Gọi ZaloPay để lấy Link
-      const zaloResponse = await this.zalopayService.createPaymentOrder(
-        dto.bookingId,
-        bookingData.totalPrice,
-        userId
-      );
-
-      // Trả về Link thanh toán (KHÔNG chốt đơn ngay)
-      return {
-        paymentUrl: zaloResponse.orderUrl,
-        appTransId: zaloResponse.appTransId,
-        message: "Vui lòng thanh toán qua ZaloPay"
-      };
+    // === Momo ===
+    if (dto.paymentMethod === 'momo') {
+      return await this.createMomoPaymentUrl(bookingData, dto.bookingId);
     }
+
 
     // === NHÁNH SIMULATOR (GIẢ LẬP) ===
     if (dto.paymentMethod === 'simulator') {
@@ -69,28 +57,79 @@ export class PaymentService {
     throw new ApiError(400, 'Phương thức thanh toán không hỗ trợ');
   }
 
-  /**
-   * Xử lý Webhook từ ZaloPay
-   */
-  async handleZaloPayCallback(body: any) {
-    const verify = this.zalopayService.verifyCallback(body);
-    if (!verify.isValid) {
-      return { return_code: -1, return_message: "Mac not matched" };
-    }
-
-    const data = verify.data; 
-    const embedData = JSON.parse(data.embed_data);
-    const bookingId = embedData.bookingId;
-    const userId = embedData.userId;
-
-    console.log(`💰 [Webhook] Received success callback for Booking ${bookingId}`);
-
+  private async createMomoPaymentUrl(bookingData: BookingDocument, bookingId: string) {
     try {
-      await this.finalizeBooking(bookingId, userId, 'zalopay');
-      return { return_code: 1, return_message: "success" };
-    } catch (error) {
-      console.error("Finalize Error:", error);
-      return { return_code: 0, return_message: "Internal Server Error" };
+      // Cấu hình Key (Nên đưa vào .env)
+      const partnerCode = "MOMO";
+      const accessKey = "F8BBA842ECF85";
+      const secretKey = "K951B6PE1waDMi640xX08PD3vg6EkVlz";
+      
+      const requestId = partnerCode + new Date().getTime();
+      const orderId = requestId; // Hoặc dùng bookingId + time để unique
+      const orderInfo = `Pay for booking ${bookingId}`;
+      const redirectUrl = "https://momo.vn/return"; // URL Client nhận kết quả
+      const ipnUrl = "https://callback.url/notify"; // URL Server nhận kết quả ngầm (cần public IP hoặc ngrok)
+      
+      // Lấy giá tiền từ Booking (ép kiểu về string)
+      const amount = bookingData.totalPrice.toString();
+      const requestType = "captureWallet";
+      const extraData = ""; // pass empty value if your merchant does not have stores
+
+      // Tạo Signature (HMAC SHA256)
+      // Quan trọng: Phải sắp xếp params theo alphabet
+      const rawSignature = `accessKey=${accessKey}&amount=${amount}&extraData=${extraData}&ipnUrl=${ipnUrl}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${partnerCode}&redirectUrl=${redirectUrl}&requestId=${requestId}&requestType=${requestType}`;
+
+      console.log("--------------------RAW SIGNATURE----------------");
+      console.log(rawSignature);
+
+      const signature = crypto
+        .createHmac('sha256', secretKey)
+        .update(rawSignature)
+        .digest('hex');
+
+      console.log("--------------------SIGNATURE----------------");
+      console.log(signature);
+
+      // Body gửi sang MoMo
+      const requestBody = {
+        partnerCode: partnerCode,
+        accessKey: accessKey,
+        requestId: requestId,
+        amount: amount,
+        orderId: orderId,
+        orderInfo: orderInfo,
+        redirectUrl: redirectUrl,
+        ipnUrl: ipnUrl,
+        extraData: extraData,
+        requestType: requestType,
+        signature: signature,
+        lang: 'en'
+      };
+
+      // Gọi API MoMo
+      const response = await axios.post<MomoPaymentResponse>(
+        'https://test-payment.momo.vn/v2/gateway/api/create',
+        requestBody,
+        {
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+
+      if (response.data.resultCode !== 0) {
+         throw new Error(response.data.message);
+      }
+
+      // Service CHỈ trả về data, không động vào res
+      return {
+        paymentMethod: 'momo',
+        deeplink: response.data.deeplink, 
+        payUrl: response.data.payUrl,
+        message: "Vui lòng mở App MoMo để thanh toán"
+      };
+
+    } catch (error: any) {
+      console.error("Momo Error:", error?.response?.data || error.message);
+      throw new ApiError(500, 'Lỗi khởi tạo thanh toán MoMo');
     }
   }
 
