@@ -2,13 +2,16 @@ import { firebaseDB } from '../../config/firebase';
 import { ProcessPaymentDto } from './dto';
 import { BookingStatus, BookingDocument } from '../booking/model';
 import { SeatStatus } from '../showtime/model';
-import { Timestamp } from 'firebase-admin/firestore';
+import { MembershipRank } from '../user/model';
+import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { ApiError } from '../../utils/ApiError';
 import QRCode from 'qrcode';
 import { ZaloPayService } from './zalopay.service';
 
 const BOOKING_COLLECTION = 'bookings';
 const SHOWTIME_COLLECTION = 'showtimes';
+const USER_COLLECTION = 'users';
+const VOUCHER_COLLECTION = 'vouchers';
 
 export class PaymentService {
   private zalopayService = new ZaloPayService();
@@ -104,6 +107,49 @@ export class PaymentService {
 
       if (bookingData.status === BookingStatus.PAID) {
         return { message: "Booking đã được thanh toán trước đó" };
+      }
+
+      // === 1. LOGIC TÍCH ĐIỂM & THĂNG HẠNG (MỚI THÊM) ===
+      const userRef = firebaseDB.collection(USER_COLLECTION).doc(userId);
+      const userDoc = await transaction.get(userRef);
+      
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        
+        // Tích điểm: 5% giá trị đơn hàng
+        const pointsEarned = Math.floor(bookingData.totalPrice * 0.05);
+        
+        // Tính tổng chi tiêu mới
+        const currentSpending = (userData?.totalSpending || 0) + bookingData.totalPrice;
+        
+        // Logic thăng hạng
+        let newRank = userData?.rank || MembershipRank.STANDARD;
+        if (currentSpending >= 10000000) newRank = MembershipRank.DIAMOND;
+        else if (currentSpending >= 5000000) newRank = MembershipRank.GOLD;
+        else if (currentSpending >= 1000000) newRank = MembershipRank.SILVER;
+
+        transaction.update(userRef, {
+          currentPoints: FieldValue.increment(pointsEarned),
+          totalSpending: currentSpending,
+          rank: newRank,
+          updatedAt: Timestamp.now()
+        });
+      }
+
+      // === 2. LOGIC TRỪ LƯỢT DÙNG VOUCHER (MỚI THÊM) ===
+      if (bookingData.voucherCode) {
+        // Tìm Voucher Document ID dựa trên Code
+        const voucherQuery = await firebaseDB.collection(VOUCHER_COLLECTION)
+          .where('code', '==', bookingData.voucherCode)
+          .limit(1)
+          .get();
+
+        if (!voucherQuery.empty) {
+          const voucherRef = voucherQuery.docs[0].ref;
+          transaction.update(voucherRef, {
+            usedCount: FieldValue.increment(1)
+          });
+        }
       }
 
       // Tạo QR

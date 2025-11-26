@@ -22,14 +22,18 @@ export interface BookingDocument {
 
   seats: string[];      // ['A1', 'A2']
   seatPrice: number;    // Giá vé đơn vị
-  totalPrice: number;   // Tổng tiền
+  originalPrice: number;   
+  discountAmount: number;  
+  finalPrice: number;      
+  voucherCode?: string | null;
+  totalPrice: number;
 
   status: BookingStatus;
 
   paymentMethod?: 'momo' | 'zalopay' | 'card' | 'simulator';
   qrCode?: string; // Lưu chuỗi Base64 của ảnh QR hoặc nội dung vé
-  paymentAt?: Timestamp;
   
+  paymentAt?: Timestamp;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   expiresAt: Timestamp; // Thời gian hết hạn giữ ghế (để Cronjob quét)

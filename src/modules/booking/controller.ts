@@ -79,6 +79,10 @@ const bookingService = new BookingService();
  *           items:
  *             type: string
  *           example: ["A5", "A6"]
+ *         voucher:
+ *           type: string
+ *           description: Mã voucher giảm giá
+ *           example: "UUDAI50"
  */
 
 /**
