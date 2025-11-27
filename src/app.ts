@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-// import helmet from "helmet"; // <-- Bỏ dòng này
 import morgan from "morgan";
 import authRoutes from "./modules/auth/routes";
 import bookingRoutes from "./modules/booking/routes";
@@ -15,19 +14,28 @@ import reviewRoutes from "./modules/review/routes"
 import voucherRoutes from "./modules/voucher/routes"
 import session from "express-session";
 import { setupSwagger } from "./config/swagger";
-//import { errorHandler } from "./middleware/error"; // Nhớ import error handler
 
 const app = express();
 
-// Basic middleware
+// Parse JSON
 app.use(express.json());
+
+// ⭐ FIX CORS CHUẨN CHO EXPRESS 5
 app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
 }));
 
-// app.use(helmet()); // <-- Xóa hoặc Comment dòng này lại
+// ⭐ CUSTOM PRE-FLIGHT HANDLER (KHẮC PHỤC LỖI "*")
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 app.use(morgan("dev"));
 app.use(session({
@@ -43,7 +51,7 @@ setupSwagger(app);
 app.get("/", (_req, res) => res.json({ message: "Ciné API running" }));
 app.get("/health", (_req, res) => res.sendStatus(200));
 
-// API routes
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/booking", bookingRoutes);
 app.use("/api/users", userRoutes);
@@ -55,8 +63,5 @@ app.use("/api/showtimes", showtimeRouters);
 app.use("/api/payment", paymentRouters);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/vouchers", voucherRoutes);
-
-// Error handling (Nên bật lại cái này để bắt lỗi đẹp hơn)
-//app.use(errorHandler);
 
 export default app;
