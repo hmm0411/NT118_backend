@@ -20,18 +20,27 @@ const movieService = new MovieService();
  *   schemas:
  *     Movie:
  *       type: object
+ *       required:
+ *         - id
+ *         - title
+ *         - createdAt
+ *         - updatedAt
  *       properties:
  *         id:
  *           type: string
+ *           description: ID của document
  *           example: "movie_mai_2024"
  *         title:
  *           type: string
+ *           description: Tên phim
  *           example: "Mai"
  *         description:
  *           type: string
+ *           description: Mô tả nội dung phim
  *           example: "Phim tình cảm tâm lý do Trấn Thành đạo diễn."
  *         genres:
  *           type: array
+ *           description: Thể loại phim
  *           items:
  *             type: string
  *           example: ["Romance", "Drama"]
@@ -41,25 +50,66 @@ const movieService = new MovieService();
  *           example: "131"
  *         director:
  *           type: string
+ *           description: Đạo diễn
  *           example: "Trấn Thành"
+ *         cast:
+ *           type: array
+ *           description: Diễn viên
+ *           items:
+ *             type: string
+ *           example: ["Phương Anh Đào", "Tuấn Trần"]
  *         releaseDate:
  *           type: string
- *           format: date
+ *           description: Ngày phát hành (có thể là năm hoặc ngày cụ thể)
  *           example: "2024-02-10"
  *         posterUrl:
  *           type: string
+ *           description: URL ảnh poster
  *           example: "https://example.com/poster_mai.jpg"
+ *         bannerImageUrl:
+ *           type: string
+ *           description: URL ảnh banner
+ *           example: "https://example.com/banner_mai.jpg"
  *         trailerUrl:
  *           type: string
+ *           description: URL trailer
  *           example: "https://youtube.com/watch?v=..."
+ *         imdbRating:
+ *           type: number
+ *           description: Điểm đánh giá IMDB
+ *           example: 8.5
+ *         language:
+ *           type: string
+ *           description: Ngôn ngữ
+ *           example: "VietNam"
  *         status:
  *           type: string
+ *           description: Trạng thái chiếu phim
  *           enum: [now_showing, coming_soon, ended]
  *           example: "now_showing"
+ *         isTopMovie:
+ *           type: boolean
+ *           description: Phim hot / top movie
+ *           example: true
+ *         ageRating:
+ *           type: string
+ *           description: Giới hạn độ tuổi
+ *           example: "13+"
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Thời gian tạo (Firestore Timestamp)
+ *           example: "2024-01-15T10:30:00Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Thời gian cập nhật (Firestore Timestamp)
+ *           example: "2024-01-20T14:45:00Z"
  *         computedStatus:
  *           type: string
  *           description: Trạng thái tính toán tự động (dựa trên ngày phát hành)
  *           example: "now_showing"
+ *     
  *     CreateMovieDto:
  *       type: object
  *       required:
@@ -67,33 +117,110 @@ const movieService = new MovieService();
  *       properties:
  *         title:
  *           type: string
+ *           description: Tên phim (bắt buộc)
  *           example: "Đào, Phở và Piano"
+ *         description:
+ *           type: string
+ *           description: Mô tả nội dung phim
+ *           example: "Phim kể về Hà Nội thời chiến tranh"
+ *         genres:
+ *           type: array
+ *           description: Thể loại phim
+ *           items:
+ *             type: string
+ *           example: ["History", "War"]
+ *         duration:
+ *           type: string
+ *           description: Thời lượng (phút)
+ *           example: "100"
+ *         director:
+ *           type: string
+ *           description: Đạo diễn
+ *           example: "Phi Tiến Sơn"
+ *         cast:
+ *           type: array
+ *           description: Diễn viên
+ *           items:
+ *             type: string
+ *           example: ["Cao Thái Hà", "Doãn Quốc Đam"]
+ *         releaseDate:
+ *           type: string
+ *           description: Ngày phát hành
+ *           example: "2024-02-10"
+ *         posterUrl:
+ *           type: string
+ *           description: URL ảnh poster
+ *           example: "https://example.com/poster.jpg"
+ *         bannerImageUrl:
+ *           type: string
+ *           description: URL ảnh banner
+ *           example: "https://example.com/banner.jpg"
+ *         trailerUrl:
+ *           type: string
+ *           description: URL trailer
+ *           example: "https://youtube.com/watch?v=..."
+ *         imdbRating:
+ *           type: number
+ *           description: Điểm đánh giá IMDB
+ *           example: 7.8
+ *         language:
+ *           type: string
+ *           description: Ngôn ngữ
+ *           example: "VietNam"
+ *         status:
+ *           type: string
+ *           description: Trạng thái chiếu phim
+ *           enum: [now_showing, coming_soon, ended]
+ *           example: "coming_soon"
+ *         isTopMovie:
+ *           type: boolean
+ *           description: Phim hot / top movie
+ *           example: false
+ *         ageRating:
+ *           type: string
+ *           description: Giới hạn độ tuổi
+ *           example: "13+"
+ *     
+ *     UpdateMovieDto:
+ *       type: object
+ *       description: Các trường giống CreateMovieDto nhưng đều là optional
+ *       properties:
+ *         title:
+ *           type: string
+ *           example: "Mai (Cập nhật)"
  *         description:
  *           type: string
  *         genres:
  *           type: array
  *           items:
  *             type: string
- *           example: ["History", "War"]
  *         duration:
  *           type: string
- *           example: "100"
  *         director:
  *           type: string
- *           example: "Phi Tiến Sơn"
+ *         cast:
+ *           type: array
+ *           items:
+ *             type: string
  *         releaseDate:
  *           type: string
- *           example: "2024-02-10"
  *         posterUrl:
  *           type: string
+ *         bannerImageUrl:
+ *           type: string
  *         trailerUrl:
+ *           type: string
+ *         imdbRating:
+ *           type: number
+ *         language:
  *           type: string
  *         status:
  *           type: string
  *           enum: [now_showing, coming_soon, ended]
- *     UpdateMovieDto:
- *       type: object
- *       description: Các trường giống CreateMovieDto nhưng đều là optional
+ *         isTopMovie:
+ *           type: boolean
+ *         ageRating:
+ *           type: string
  */
 
 /**
@@ -171,6 +298,14 @@ export async function getMovieById(req: Request, res: Response) {
  *     responses:
  *       201:
  *         description: Tạo thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Movie'
+ *       400:
+ *         description: Dữ liệu không hợp lệ
+ *       500:
+ *         description: Lỗi server
  */
 export async function createMovie(req: Request, res: Response) {
   try {
@@ -214,6 +349,16 @@ export async function createMovie(req: Request, res: Response) {
  *     responses:
  *       200:
  *         description: Cập nhật thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Movie'
+ *       400:
+ *         description: Dữ liệu không hợp lệ
+ *       404:
+ *         description: Không tìm thấy phim
+ *       500:
+ *         description: Lỗi server
  */
 export async function updateMovie(req: Request, res: Response) {
   try {
@@ -253,6 +398,21 @@ export async function updateMovie(req: Request, res: Response) {
  *     responses:
  *       200:
  *         description: Xóa thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Movie deleted successfully"
+ *       404:
+ *         description: Không tìm thấy phim
+ *       500:
+ *         description: Lỗi server
  */
 export async function deleteMovie(req: Request, res: Response) {
   try {
