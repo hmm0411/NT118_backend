@@ -3,7 +3,7 @@ import { BookingService } from './service';
 import { CreateBookingDto } from './dto';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { AuthRequest } from '../../middleware/auth'; 
+import { AuthRequest } from '../../middleware/auth';
 import { ApiError } from '../../utils/ApiError';
 
 const bookingService = new BookingService();

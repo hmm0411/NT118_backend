@@ -36,7 +36,7 @@ export class UserService {
     const updateData: Record<string, any> = { ...dto };
 
     // Xóa các key có giá trị undefined
-    Object.keys(updateData).forEach(key => 
+    Object.keys(updateData).forEach(key =>
       updateData[key] === undefined && delete updateData[key]
     );
 
@@ -63,5 +63,25 @@ export class UserService {
     // Sắp xếp bằng code (an toàn, không cần index)
     // Firestore sẽ báo lỗi nếu bạn dùng .orderBy mà không có index
     return data.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+  }
+
+  /**
+   * Lấy danh sách tất cả user (Admin)
+   * Hỗ trợ lọc theo role và giới hạn
+   */
+  async getAllUsers(filters?: { role?: 'user' | 'admin'; limit?: number }): Promise<User[]> {
+    let query: FirebaseFirestore.Query = usersCollection;
+
+    if (filters?.role) {
+      query = query.where('role', '==', filters.role);
+    }
+
+    // sắp xếp theo createdAt mới nhất
+    query = query.orderBy('createdAt', 'desc');
+    if (filters?.limit && filters.limit > 0) query = query.limit(filters.limit);
+
+    const snapshot = await query.get();
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as UserDocument) } as User));
   }
 }

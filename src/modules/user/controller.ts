@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import { UserService } from "./service";
 import { UpdateUserDto } from "./dto";
 import { plainToInstance } from "class-transformer";
@@ -131,7 +131,7 @@ export async function updateUser(req: Request, res: Response) {
     if (errors.length > 0) {
       return res.status(400).json({ success: false, errors });
     }
-    
+
     await userService.updateUser(id, dto);
     res.json({ success: true, message: "User updated successfully" });
   } catch (error: any) {
@@ -172,3 +172,41 @@ export async function getBookings(req: Request, res: Response) {
     res.status(500).json({ success: false, message: error.message });
   }
 }
+export async function getAllUsers(req: Request, res: Response) {
+  /**
+   * @swagger
+   * /api/users:
+   *   get:
+   *     summary: Lấy danh sách tất cả người dùng (Admin)
+   *     tags: [Users]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: role
+   *         schema:
+   *           type: string
+   *           enum: [user, admin]
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: number
+   *     responses:
+   *       200:
+   *         description: Danh sách người dùng
+   */
+  try {
+    // Admin route - middleware should verify admin already
+    const { role, limit } = req.query;
+
+    const filters: any = {};
+    if (role && (role === 'user' || role === 'admin')) filters.role = role as 'user' | 'admin';
+    if (limit) filters.limit = parseInt(limit as string, 10);
+
+    const users = await userService.getAllUsers(filters);
+    res.status(200).json({ success: true, message: 'Lấy danh sách người dùng thành công', data: users });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+

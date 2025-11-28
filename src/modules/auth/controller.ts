@@ -54,7 +54,7 @@ export async function loginAndSync(req: Request, res: Response) {
     const userToken = (req as AuthRequest).user;
 
     if (!userToken) {
-        return res.status(401).json({ message: "Unauthorized" });
+      return res.status(401).json({ message: "Unauthorized" });
     }
 
     const user = await authService.syncUser(userToken);
